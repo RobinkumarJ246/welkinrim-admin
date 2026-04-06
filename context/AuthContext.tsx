@@ -25,13 +25,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+    // Use real Supabase auth only - no mock fallback
     const user = await auth.login(username, password);
-    if (user) {
-      auth.saveSession(user);
-      setUser(user);
-      return true;
+    if (!user) {
+      return false;
     }
-    return false;
+    setUser(user);
+    return true;
   }, []);
 
   const logout = useCallback(() => {

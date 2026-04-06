@@ -1,14 +1,16 @@
 'use client';
 
-import { Product, isMotor, isESC, isFC, isIPS, getDomainForProduct } from '@/lib/products';
+import { Product, SupabaseProduct, getDomainForProduct } from '@/lib/products';
+import { getWeight } from '@/lib/productUtils';
 
 interface ProductTableProps {
-  products: Product[];
-  sortKey: 'model' | 'kv' | 'voltage' | 'peakThrust' | 'weight';
+  products: SupabaseProduct[];
+  sortKey: 'model' | 'series' | 'category' | 'weight';
   sortDir: 'asc' | 'desc';
-  onSort: (key: 'model' | 'kv' | 'voltage' | 'peakThrust' | 'weight') => void;
-  onEdit: (product: Product) => void;
+  onSort: (key: 'model' | 'series' | 'category' | 'weight') => void;
+  onEdit: (product: SupabaseProduct) => void;
   onDelete: (id: string) => void;
+  onView?: (product: SupabaseProduct) => void;
 }
 
 export function ProductTable({
@@ -18,6 +20,7 @@ export function ProductTable({
   onSort,
   onEdit,
   onDelete,
+  onView,
 }: ProductTableProps) {
   if (products.length === 0) {
     return (
@@ -33,70 +36,83 @@ export function ProductTable({
       <table className="data-table">
         <thead>
           <tr>
-            <th onClick={() => onSort('model')}>
+            <th style={{ width: '280px' }} onClick={() => onSort('model')}>
               Model {getSortIcon(sortKey, 'model', sortDir)}
             </th>
-            <th>Series</th>
-            <th>Category</th>
-            <th onClick={() => onSort('kv')}>
-              KV {getSortIcon(sortKey, 'kv', sortDir)}
+            <th onClick={() => onSort('series')}>
+              Series {getSortIcon(sortKey, 'series', sortDir)}
             </th>
-            <th onClick={() => onSort('voltage')}>
-              Voltage {getSortIcon(sortKey, 'voltage', sortDir)}
+            <th onClick={() => onSort('category')}>
+              Category {getSortIcon(sortKey, 'category', sortDir)}
             </th>
-            <th onClick={() => onSort('peakThrust')}>
-              Peak Thrust {getSortIcon(sortKey, 'peakThrust', sortDir)}
+            <th onClick={() => onSort('weight')}>
+              Weight {getSortIcon(sortKey, 'weight', sortDir)}
             </th>
-            <th>Weight</th>
             <th className="actions-header">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {products.map((product) => (
-            <tr key={product.id}>
-              <td>
-                <div className="model-cell">
-                  <span className="model-name">{product.model}</span>
-                  <span className="model-id">{product.id}</span>
-                </div>
-              </td>
-              <td>
-                {'series' in product && (
-                  <span className="series-badge">{product.series}</span>
-                )}
-                {!'series' in product && <span>—</span>}
-              </td>
-              <td>
-                <DomainBadge domain={getDomainForProduct(product)} />
-              </td>
-              <td className="mono">
-                {'kv' in product ? product.kv : '—'}
-              </td>
-              <td className="mono">
-                {'voltage' in product ? product.voltage : '—'}
-              </td>
-              <td className="mono">
-                {'peakThrust' in product ? product.peakThrust : '—'}
-              </td>
-              <td className="mono">
-                {product.weight}g
-              </td>
-              <td className="actions-cell">
-                <button
-                  className="btn btn-ghost btn-sm action-btn"
-                  onClick={() => onEdit(product)}
-                >
-                  <EditIcon />
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm action-btn text-danger"
-                  onClick={() => onDelete(product.id)}
-                >
-                  <DeleteIcon />
-                </button>
-              </td>
-            </tr>
-          ))}
+          {products.map((product) => {
+            const domain = getDomainForProduct(product);
+            const weight = getWeight(product);
+            const thumbnailUrl = (product as any).thumbnailUrl || (product.data as any)?.thumbnailUrl;
+
+            return (
+              <tr key={product.id} className="product-row" onClick={() => onView?.(product)} style={{ cursor: onView ? 'pointer' : 'default' }}>
+                <td className="model-col">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {thumbnailUrl && (
+                      <img 
+                        src={thumbnailUrl} 
+                        alt={product.model}
+                        style={{ 
+                          width: '56px', 
+                          height: '42px', 
+                          objectFit: 'cover', 
+                          borderRadius: '4px',
+                          border: '1px solid var(--color-white-border)'
+                        }}
+                      />
+                    )}
+                    <div className="model-cell">
+                      <span className="model-name">{product.model}</span>
+                      <span className="model-id">{product.id}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  {(product.series || ((product as any).data && 'series' in (product as any).data && (product as any).data.series)) ? (
+                    <span className="series-badge">{product.series || (product as any).data.series}</span>
+                  ) : <span>—</span>}
+                </td>
+                <td>
+                  <DomainBadge domain={getDomainForProduct((product as any).data || product)} />
+                </td>
+                <td className="mono">
+                  {(() => {
+                    const weight = getWeight(product);
+                    return weight !== '—' ? `${weight}g` : '—';
+                  })()}
+                </td>
+                <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="btn btn-ghost btn-sm action-btn"
+                    onClick={(e) => { e.stopPropagation(); onEdit(product); }}
+                    title="Edit"
+                  >
+                    <EditIcon />
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm action-btn text-danger"
+                    onClick={(e) => { e.stopPropagation(); onDelete(product.id); }}
+                    title="Delete"
+                  >
+                    <DeleteIcon />
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

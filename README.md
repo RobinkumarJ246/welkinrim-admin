@@ -1,36 +1,182 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Welkinrim Admin Console
 
-## Getting Started
+Admin console for managing Welkinrim products, series, and content. Built with Next.js, TypeScript, and Supabase.
 
-First, run the development server:
+## Features
+
+- **Product Management**: Full CRUD operations for motors, ESCs, flight controllers, and IPS
+- **Series Management**: Configure product series with branding and colors
+- **Image Upload**: Product thumbnails and icons with validation
+- **Custom Fields**: Add additional metadata to products
+- **Real-time Updates**: Supabase integration with live data
+- **Authentication**: Secure admin access via Supabase Auth
+
+## Prerequisites
+
+- Node.js 18+ and npm
+- Supabase account and project
+- Admin user credentials
+
+## Setup
+
+### 1. Environment Configuration
+
+Create `.env.local` in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+Get these values from your Supabase project settings.
+
+### 2. Database Setup
+
+The database schema includes:
+
+- `public.products` - Product catalog
+- `public.series` - Product series configuration
+- Storage buckets: `product-assets`, `series-assets`
+
+**Run migrations** in your Supabase SQL editor:
+
+```sql
+-- See supabase/migrations/ for full schema
+```
+
+### 3. Create Storage Buckets
+
+In Supabase Dashboard → Storage, create:
+
+1. `product-assets` (public bucket)
+2. `series-assets` (public bucket)
+
+Set policies to allow authenticated uploads and public reads.
+
+### 4. Create Admin User
+
+In Supabase Dashboard → Authentication → Users:
+
+1. Add new user with email/password
+2. Use these credentials to log into the admin console
+
+### 5. Seed Database (Optional)
+
+```bash
+npm install
+npx tsx scripts/seedDatabase.ts
+```
+
+This seeds series and sample products from the client website.
+
+### 6. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and log in with your admin credentials.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+├── app/
+│   ├── (auth)/          # Login pages
+│   └── (dashboard)/     # Admin pages (products, series, settings)
+├── components/
+│   ├── products/        # Product management UI
+│   ├── loading/         # Skeleton loaders
+│   └── layout/          # Sidebar, header
+├── hooks/
+│   ├── useProducts.ts   # Product data hook
+│   ├── useSeries.ts     # Series data hook
+│   └── useProductActions.ts  # Product actions with toasts
+├── lib/
+│   ├── supabaseClient.ts     # Supabase client
+│   ├── auth.ts               # Authentication helpers
+│   ├── imageUpload.ts        # Image validation and upload
+│   └── products.ts           # Product types
+└── scripts/
+    └── seedDatabase.ts       # Database seeding script
+```
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
+### Managing Products
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Navigate to **Products** in the sidebar
+2. Click **Add Product** to create new products
+3. Fill in product details, upload images, add custom fields
+4. Products are automatically synced to Supabase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Image Requirements:**
+- Thumbnails: min 800×600px, aspect 1.3-1.9, max 1MB
+- Icons: min 256×256px, square, max 256KB
 
-## Deploy on Vercel
+### Managing Series
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Navigate to **Series** in the sidebar
+2. Configure series branding (colors, logos)
+3. Series are used for product categorization
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Authentication
+
+- Login at `/login`
+- Sessions are cached in localStorage
+- Logout via user menu in header
+
+## API Integration
+
+To fetch products from the client website:
+
+```typescript
+import { supabase } from '@/lib/supabaseClient';
+
+const { data: products } = await supabase
+  .from('products')
+  .select('*')
+  .order('created_at', { ascending: false });
+```
+
+## Troubleshooting
+
+**Cannot login:**
+- Verify Supabase URL and anon key in `.env.local`
+- Check user exists in Supabase Auth
+
+**Images not uploading:**
+- Verify storage buckets exist and are public
+- Check bucket policies allow authenticated uploads
+
+**Products not saving:**
+- Check RLS policies on `products` table
+- Ensure user is authenticated
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+## Deployment
+
+Deploy to Vercel, Netlify, or any Next.js hosting platform:
+
+1. Set environment variables in hosting dashboard
+2. Deploy from GitHub repository
+3. Ensure Supabase project is accessible
+
+## License
+
+Proprietary - Welkinrim Technologies

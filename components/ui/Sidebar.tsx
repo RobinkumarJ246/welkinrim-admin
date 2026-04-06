@@ -22,6 +22,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navItems = [
     { href: '/', label: 'Dashboard', icon: DashboardIcon },
     { href: '/products', label: 'Products', icon: ProductsIcon },
+    { href: '/series', label: 'Series', icon: SeriesIcon },
     { href: '/settings', label: 'Settings', icon: SettingsIcon },
   ];
 
@@ -91,6 +92,17 @@ function ProductsIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
       <rect x="2" y="3" width="16" height="5" rx="1" />
       <rect x="2" y="10" width="16" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function SeriesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 6h14M3 10h14M3 14h14" />
+      <circle cx="7" cy="6" r="1.5" fill="currentColor" />
+      <circle cx="7" cy="10" r="1.5" fill="currentColor" />
+      <circle cx="7" cy="14" r="1.5" fill="currentColor" />
     </svg>
   );
 }

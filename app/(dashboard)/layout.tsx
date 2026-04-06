@@ -17,11 +17,6 @@ export default function DashboardLayout({
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialize products data on first load
-    initializeProducts();
-  }, []);
-
-  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       console.log('Redirecting to login - not authenticated');
       router.push('/login');

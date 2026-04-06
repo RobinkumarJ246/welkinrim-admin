@@ -3,7 +3,7 @@
  */
 
 export type ProductCategory = 'motor' | 'esc' | 'fc' | 'ips';
-export type ProductSeries = 'Haemng' | 'Maelard' | 'ESC' | 'Flight Controller' | 'IPS';
+export type ProductSeries = 'Haemng' | 'Maelard' | 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips' | 'ESC' | 'Flight Controller' | 'IPS';
 
 export interface PerformancePoint {
   throttle: number;
@@ -17,7 +17,7 @@ export interface PerformancePoint {
 
 export interface MotorProduct {
   id: string;
-  series: 'Haemng' | 'Maelard';
+  series: 'Haemng' | 'Maelard' | 'haemng' | 'maelard';
   model: string;
   category: 'motor';
   kv: number;
@@ -37,7 +37,7 @@ export interface MotorProduct {
 
 export interface ESCProduct {
   id: string;
-  series: 'ESC';
+  series: 'ESC' | 'esc';
   model: string;
   category: 'esc';
   continuousCurrent: number;
@@ -105,6 +105,13 @@ export interface IPSProduct {
 }
 
 export type Product = MotorProduct | ESCProduct | FCProduct | IPSProduct;
+
+// Extended product type from Supabase with metadata and nested data
+export interface SupabaseProduct extends Product {
+  data?: Product;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export function isMotor(product: Product): product is MotorProduct {
   return product.category === 'motor';

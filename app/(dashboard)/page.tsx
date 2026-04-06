@@ -3,14 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import { StatsOverview } from '@/components/dashboard/StatsOverview';
-import { initializeProducts } from '@/lib/storage';
 
 export default function DashboardPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { products, refresh } = useProducts();
 
   useEffect(() => {
-    initializeProducts();
     refresh();
     setIsLoaded(true);
   }, [refresh]);

@@ -2,46 +2,62 @@
 
 import { useProducts } from '@/hooks/useProducts';
 import { useToast } from '@/context/ToastContext';
+import type { Product } from '@/lib/products';
 
-export function ProductsPageWithToast() {
-  // This is a wrapper to demonstrate toast integration
-  // In production, you would integrate toasts directly into the ProductFormModal
-  return null;
-}
-
-// Hook for product actions with toast notifications
+// Hook for product actions with toast notifications and async handling
 export function useProductActions() {
   const { create, update, remove } = useProducts();
   const { success, error } = useToast();
 
-  const createWithToast = (product: any) => {
-    const result = create(product);
-    if (result) {
-      success('Product created successfully');
-    } else {
+  const createWithToast = async (product: Product): Promise<boolean> => {
+    try {
+      const result = await create(product);
+      if (result) {
+        success('Product created successfully');
+        return true;
+      } else {
+        error('Failed to create product - ID may already exist');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error creating product:', err);
       error('Failed to create product');
+      return false;
     }
-    return result;
   };
 
-  const updateWithToast = (id: string, updates: any) => {
-    const result = update(id, updates);
-    if (result) {
-      success('Product updated successfully');
-    } else {
+  const updateWithToast = async (id: string, updates: Partial<Product>): Promise<boolean> => {
+    try {
+      const result = await update(id, updates);
+      if (result) {
+        success('Product updated successfully');
+        return true;
+      } else {
+        error('Failed to update product');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error updating product:', err);
       error('Failed to update product');
+      return false;
     }
-    return result;
   };
 
-  const removeWithToast = (id: string) => {
-    const result = remove(id);
-    if (result) {
-      success('Product deleted successfully');
-    } else {
+  const removeWithToast = async (id: string): Promise<boolean> => {
+    try {
+      const result = await remove(id);
+      if (result) {
+        success('Product deleted successfully');
+        return true;
+      } else {
+        error('Failed to delete product');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error deleting product:', err);
       error('Failed to delete product');
+      return false;
     }
-    return result;
   };
 
   return {

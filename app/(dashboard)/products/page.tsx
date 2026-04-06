@@ -5,22 +5,25 @@ import { useProducts } from '@/hooks/useProducts';
 import { ProductTable } from '@/components/products/ProductTable';
 import { ProductFilters } from '@/components/products/ProductFilters';
 import { ProductFormModal } from '@/components/products/ProductFormModal';
-import { isMotor, isESC, isFC, isIPS } from '@/lib/products';
+import { ProductDetailModal } from '@/components/products/ProductDetailModal';
+import { ProductTableSkeleton } from '@/components/loading/SkeletonLoader';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 type CategoryFilter = 'all' | 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips';
-type SortKey = 'model' | 'kv' | 'voltage' | 'peakThrust' | 'weight';
+type SortKey = 'model' | 'series' | 'category' | 'weight';
 type SortDir = 'asc' | 'desc';
 
 export default function ProductsPage() {
-  const { products, remove } = useProducts();
+  const { products, loading, remove } = useProducts();
 
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('model');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProduct, setEditingProduct] = useState<typeof products[0] | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<typeof products[0] | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<typeof products[0] | null>(null);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -28,9 +31,9 @@ export default function ProductsPage() {
     // Category filter
     if (activeCategory !== 'all') {
       if (activeCategory === 'haemng') {
-        result = result.filter(p => p.category === 'motor' && p.series === 'Haemng');
+        result = result.filter(p => p.category === 'motor' && (p.series === 'haemng' || p.series === 'Haemng'));
       } else if (activeCategory === 'maelard') {
-        result = result.filter(p => p.category === 'motor' && p.series === 'Maelard');
+        result = result.filter(p => p.category === 'motor' && (p.series === 'maelard' || p.series === 'Maelard'));
       } else {
         result = result.filter(p => p.category === activeCategory);
       }
@@ -53,24 +56,22 @@ export default function ProductsPage() {
 
       switch (sortKey) {
         case 'model':
-          aVal = a.model.toLowerCase();
-          bVal = b.model.toLowerCase();
+          aVal = ((a as any).model || '').toLowerCase();
+          bVal = ((b as any).model || '').toLowerCase();
           break;
-        case 'kv':
-          aVal = 'kv' in a ? a.kv : 0;
-          bVal = 'kv' in b ? b.kv : 0;
+        case 'series':
+          aVal = ((a as any).series || '').toLowerCase();
+          bVal = ((b as any).series || '').toLowerCase();
           break;
-        case 'voltage':
-          aVal = 'voltage' in a ? String(a.voltage) : '';
-          bVal = 'voltage' in b ? String(b.voltage) : '';
-          break;
-        case 'peakThrust':
-          aVal = 'peakThrust' in a ? String(a.peakThrust) : '';
-          bVal = 'peakThrust' in b ? String(b.peakThrust) : '';
+        case 'category':
+          aVal = ((a as any).category || '').toLowerCase();
+          bVal = ((b as any).category || '').toLowerCase();
           break;
         case 'weight':
-          aVal = 'weight' in a ? a.weight : 0;
-          bVal = 'weight' in b ? b.weight : 0;
+          const aData = (a as any).data || a;
+          const bData = (b as any).data || b;
+          aVal = aData.weight || 0;
+          bVal = bData.weight || 0;
           break;
       }
 
@@ -96,15 +97,14 @@ export default function ProductsPage() {
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setDeleteConfirm(id);
+  const handleView = (product: typeof products[0]) => {
+    setViewingProduct(product);
   };
 
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      remove(deleteConfirm);
-      setDeleteConfirm(null);
-    }
+  const handleDelete = async () => {
+    if (!deleteConfirmProduct) return;
+    await remove(deleteConfirmProduct.id);
+    setDeleteConfirmProduct(null);
   };
 
   const handleAddNew = () => {
@@ -112,7 +112,8 @@ export default function ProductsPage() {
     setIsFormOpen(true);
   };
 
-  const motorsCount = products.filter(p => p.category === 'motor').length;
+  const haemngCount = products.filter(p => p.category === 'motor' && (p.series === 'haemng' || p.series === 'Haemng')).length;
+  const maelardCount = products.filter(p => p.category === 'motor' && (p.series === 'maelard' || p.series === 'Maelard')).length;
   const escsCount = products.filter(p => p.category === 'esc').length;
   const fcsCount = products.filter(p => p.category === 'fc').length;
   const ipsCount = products.filter(p => p.category === 'ips').length;
@@ -137,22 +138,30 @@ export default function ProductsPage() {
         onSearchChange={setSearchQuery}
         stats={{
           all: products.length,
-          haemng: motorsCount,
-          maelard: products.filter(p => p.category === 'motor' && p.series === 'Maelard').length,
+          haemng: haemngCount,
+          maelard: maelardCount,
           esc: escsCount,
           fc: fcsCount,
           ips: ipsCount,
         }}
       />
 
-      <ProductTable
-        products={filteredProducts}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={handleSort}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+      {loading ? (
+        <ProductTableSkeleton />
+      ) : (
+        <ProductTable
+          products={filteredProducts}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          onEdit={handleEdit}
+          onDelete={(id) => {
+            const product = products.find(p => p.id === id);
+            if (product) setDeleteConfirmProduct(product);
+          }}
+          onView={handleView}
+        />
+      )}
 
       {isFormOpen && (
         <ProductFormModal
@@ -161,26 +170,25 @@ export default function ProductsPage() {
         />
       )}
 
-      {deleteConfirm && (
-        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Confirm Delete</h2>
-            </div>
-            <div className="modal-body">
-              <p>Are you sure you want to delete this product? This action cannot be undone.</p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>
-                Cancel
-              </button>
-              <button className="btn btn-danger" onClick={confirmDelete}>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+      {viewingProduct && (
+        <ProductDetailModal
+          product={viewingProduct}
+          onClose={() => setViewingProduct(null)}
+          onEdit={handleEdit}
+        />
       )}
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirmProduct}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${deleteConfirmProduct?.model}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmType="danger"
+        requireTyping={deleteConfirmProduct?.id}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteConfirmProduct(null)}
+      />
 
       <style jsx>{`
         .products-page {

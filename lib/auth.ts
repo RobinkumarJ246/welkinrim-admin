@@ -1,37 +1,45 @@
 /**
- * Mock authentication utilities
+ * Supabase-backed authentication utilities
+ *
+ * We keep the same AuthContext API but delegate login to Supabase
+ * using email/password. A lightweight user object is cached in
+ * localStorage so AuthContext can restore session synchronously.
  */
+
+import { supabase } from './supabaseClient';
 
 export interface User {
   id: string;
-  username: string;
+  username: string; // email
   name: string;
   role: 'admin' | 'editor';
   avatar?: string;
 }
 
-const MOCK_USER: User = {
-  id: '1',
-  username: 'admin',
-  name: 'Administrator',
-  role: 'admin',
-  avatar: undefined,
-};
-
-const MOCK_PASSWORD = 'admin123';
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 export const auth = {
-  login(username: string, password: string): Promise<User | null> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (username === MOCK_USER.username && password === MOCK_PASSWORD) {
-          resolve(MOCK_USER);
-        } else {
-          resolve(null);
-        }
-      }, 500); // Simulate network delay
+  async login(username: string, password: string): Promise<User | null> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: username,
+      password,
     });
+
+    if (error || !data.user) {
+      return null;
+    }
+
+    const user: User = {
+      id: data.user.id,
+      username: data.user.email ?? username,
+      name: data.user.user_metadata?.full_name ?? (data.user.email ?? 'Admin User'),
+      // For now, treat all authenticated users as admins
+      role: 'admin',
+      avatar: data.user.user_metadata?.avatar_url,
+    };
+
+    this.saveSession(user);
+    return user;
   },
 
   saveSession(user: User): void {
