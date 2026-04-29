@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
           const { error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email: email,
-            redirectTo: `${siteUrl}/login?mode=setup`,
           });
 
           if (magicLinkError) {
@@ -117,7 +116,6 @@ export async function POST(request: NextRequest) {
           await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email: email,
-            redirectTo: `${siteUrl}/login?mode=setup`,
           });
         }
 
@@ -173,7 +171,6 @@ export async function POST(request: NextRequest) {
       const { error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: email,
-        redirectTo: `${siteUrl}/login?mode=setup`,
       });
 
       if (magicLinkError) {
@@ -215,7 +212,6 @@ export async function POST(request: NextRequest) {
       const { error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: profile.email,
-        redirectTo: `${siteUrl}/login?mode=setup`,
       });
 
       if (magicLinkError) {

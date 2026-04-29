@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 export interface Series {
   id: string;
   label: string;
+  description?: string;
   use_svg_logo: boolean;
   logo_src?: string;
   accent: string;
@@ -83,6 +84,7 @@ export function useSeries() {
     const { error } = await supabase.from('series').insert({
       id: newSeries.id,
       label: newSeries.label,
+      description: newSeries.description,
       use_svg_logo: newSeries.use_svg_logo,
       logo_src: newSeries.logo_src,
       accent: newSeries.accent,
@@ -114,14 +116,29 @@ export function useSeries() {
     return true;
   }, [refresh]);
 
-  const remove = useCallback(async (id: string): Promise<boolean> => {
-    // Soft delete: mark as deleted instead of removing
+  // Soft delete - move to trash
+  const softDelete = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase
       .from('series')
       .update({ is_deleted: true, deleted_at: new Date().toISOString() })
       .eq('id', id);
     if (error) {
-      console.error('Error deleting series', error);
+      console.error('Error soft deleting series', error);
+      return false;
+    }
+
+    await refresh();
+    return true;
+  }, [refresh]);
+
+  // Hard delete - permanent removal (used from trash page)
+  const remove = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('series')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error('Error permanently deleting series', error);
       return false;
     }
 
@@ -166,6 +183,7 @@ export function useSeries() {
     create,
     update,
     remove,
+    softDelete,
     restore,
     getDeleted,
     refresh,

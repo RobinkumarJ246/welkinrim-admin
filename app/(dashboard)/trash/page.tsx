@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { useProducts } from '@/hooks/useProducts';
 import { useSeries } from '@/hooks/useSeries';
 import type { SupabaseProduct } from '@/lib/products';
+import { ProductDetailModal } from '@/components/products/ProductDetailModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function TrashPage() {
   const { getDeleted, restore, remove: removeProduct } = useProducts();
@@ -14,6 +16,14 @@ export default function TrashPage() {
   const [deletedSeries, setDeletedSeries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'series'>('products');
+
+  // View details modal
+  const [viewingProduct, setViewingProduct] = useState<SupabaseProduct | null>(null);
+  const [viewingSeries, setViewingSeries] = useState<any | null>(null);
+
+  // Confirm dialogs
+  const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState<string | null>(null);
+  const [showDeleteSeriesConfirm, setShowDeleteSeriesConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     loadDeleted();
@@ -42,30 +52,30 @@ export default function TrashPage() {
     }
   };
 
-  const permanentlyDeleteProduct = async (id: string) => {
-    if (!confirm('Permanently delete this product? This CANNOT be undone!')) return;
-    // Hard delete - actually remove from database
+  const permanentlyDeleteProduct = async () => {
+    if (!showDeleteProductConfirm) return;
     const { error } = await supabase
       .from('products')
       .delete()
-      .eq('id', id);
+      .eq('id', showDeleteProductConfirm);
 
     if (!error) {
       await loadDeleted();
     }
+    setShowDeleteProductConfirm(null);
   };
 
-  const permanentlyDeleteSeries = async (id: string) => {
-    if (!confirm('Permanently delete this series? This CANNOT be undone!')) return;
-    // Hard delete - actually remove from database
+  const permanentlyDeleteSeries = async () => {
+    if (!showDeleteSeriesConfirm) return;
     const { error } = await supabase
       .from('series')
       .delete()
-      .eq('id', id);
+      .eq('id', showDeleteSeriesConfirm);
 
     if (!error) {
       await loadDeleted();
     }
+    setShowDeleteSeriesConfirm(null);
   };
 
   return (
@@ -118,6 +128,14 @@ export default function TrashPage() {
                     </div>
                     <div className="item-actions">
                       <button
+                        className="btn btn-ghost"
+                        onClick={() => setViewingProduct(product)}
+                        title="View details"
+                      >
+                        <ViewIcon />
+                        View
+                      </button>
+                      <button
                         className="btn btn-secondary"
                         onClick={() => handleRestoreProduct(product.id)}
                       >
@@ -125,7 +143,7 @@ export default function TrashPage() {
                       </button>
                       <button
                         className="btn btn-danger"
-                        onClick={() => permanentlyDeleteProduct(product.id)}
+                        onClick={() => setShowDeleteProductConfirm(product.id)}
                       >
                         Delete Forever
                       </button>
@@ -156,6 +174,14 @@ export default function TrashPage() {
                     </div>
                     <div className="item-actions">
                       <button
+                        className="btn btn-ghost"
+                        onClick={() => setViewingSeries(series)}
+                        title="View details"
+                      >
+                        <ViewIcon />
+                        View
+                      </button>
+                      <button
                         className="btn btn-secondary"
                         onClick={() => handleRestoreSeries(series.id)}
                       >
@@ -163,7 +189,7 @@ export default function TrashPage() {
                       </button>
                       <button
                         className="btn btn-danger"
-                        onClick={() => permanentlyDeleteSeries(series.id)}
+                        onClick={() => setShowDeleteSeriesConfirm(series.id)}
                       >
                         Delete Forever
                       </button>
@@ -175,6 +201,47 @@ export default function TrashPage() {
           )}
         </div>
       )}
+
+      {/* Product Detail Modal */}
+      {viewingProduct && (
+        <ProductDetailModal
+          product={viewingProduct}
+          onClose={() => setViewingProduct(null)}
+        />
+      )}
+
+      {/* Series Detail Modal */}
+      {viewingSeries && (
+        <SeriesDetailModal
+          series={viewingSeries}
+          onClose={() => setViewingSeries(null)}
+        />
+      )}
+
+      {/* Confirm Dialogs */}
+      <ConfirmDialog
+        isOpen={!!showDeleteProductConfirm}
+        title="Permanently Delete Product"
+        message="This action CANNOT be undone. The product will be completely removed from the database."
+        confirmText="Delete Forever"
+        cancelText="Cancel"
+        confirmType="danger"
+        requireTyping="DELETE"
+        onConfirm={permanentlyDeleteProduct}
+        onCancel={() => setShowDeleteProductConfirm(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!showDeleteSeriesConfirm}
+        title="Permanently Delete Series"
+        message="This action CANNOT be undone. The series will be completely removed from the database."
+        confirmText="Delete Forever"
+        cancelText="Cancel"
+        confirmType="danger"
+        requireTyping="DELETE"
+        onConfirm={permanentlyDeleteSeries}
+        onCancel={() => setShowDeleteSeriesConfirm(null)}
+      />
 
       <style jsx>{`
         .trash-page {
@@ -279,6 +346,20 @@ export default function TrashPage() {
           border-radius: 4px;
           cursor: pointer;
           transition: all 150ms ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .btn-ghost {
+          background: transparent;
+          border: 1px solid var(--color-white-border);
+          color: var(--color-ink-soft);
+        }
+
+        .btn-ghost:hover {
+          background: var(--color-white-grey);
+          color: var(--color-ink);
         }
 
         .btn-secondary {
@@ -330,6 +411,185 @@ export default function TrashPage() {
           font-family: var(--font-mono);
         }
       `}</style>
+    </div>
+  );
+}
+
+function ViewIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M1 7s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z" />
+      <circle cx="7" cy="7" r="2" />
+    </svg>
+  );
+}
+
+function SeriesDetailModal({ series, onClose }: { series: any; onClose: () => void }) {
+  const formatDate = (date: string | undefined) => {
+    if (!date) return '—';
+    return new Date(date).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">{series.label}</h2>
+            <p className="modal-subtitle">{series.id}</p>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="detail-grid">
+            <div className="detail-item">
+              <span className="detail-label">Label</span>
+              <span className="detail-value">{series.label}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Description</span>
+              <span className="detail-value">{series.description || '—'}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Created</span>
+              <span className="detail-value mono">{formatDate(series.created_at)}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Last Updated</span>
+              <span className="detail-value mono">{formatDate(series.updated_at)}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Deleted</span>
+              <span className="detail-value mono">{formatDate(series.deleted_at)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
+        </div>
+
+        <style jsx>{`
+          .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(14, 14, 15, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+          }
+
+          .modal {
+            max-width: 500px;
+            width: 100%;
+            background: var(--color-white-pure);
+            border-radius: 8px;
+          }
+
+          .modal-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 24px;
+            border-bottom: 1px solid var(--color-white-border);
+          }
+
+          .modal-title {
+            font-family: var(--font-display);
+            font-size: 20px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin: 0;
+          }
+
+          .modal-subtitle {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--color-ink-soft);
+            margin: 4px 0 0 0;
+          }
+
+          .modal-close {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--color-ink-soft);
+            font-size: 24px;
+            border-radius: 4px;
+          }
+
+          .modal-close:hover {
+            background: var(--color-white-grey);
+          }
+
+          .modal-body {
+            padding: 24px;
+          }
+
+          .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--color-white-border);
+          }
+
+          .detail-grid {
+            display: grid;
+            gap: 16px;
+          }
+
+          .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+
+          .detail-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--color-ink-soft);
+          }
+
+          .detail-value {
+            font-size: 14px;
+            color: var(--color-ink);
+          }
+
+          .detail-value.mono {
+            font-family: var(--font-mono);
+            font-size: 13px;
+          }
+
+          .btn {
+            padding: 10px 20px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            background: var(--color-white-pure);
+            border: 1px solid var(--color-white-border);
+          }
+
+          .btn:hover {
+            background: var(--color-white-grey);
+          }
+        `}</style>
+      </div>
     </div>
   );
 }

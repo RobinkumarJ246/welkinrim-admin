@@ -4,13 +4,17 @@ import { useState, useEffect } from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import type { SupabaseProduct } from '@/lib/products';
 import { ProductFormModal } from '@/components/products/ProductFormModal';
+import { ProductDetailModal } from '@/components/products/ProductDetailModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function DraftsPage() {
   const { getDrafts, publish, remove } = useProducts();
   const [drafts, setDrafts] = useState<SupabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<SupabaseProduct | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<SupabaseProduct | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     loadDrafts();
@@ -30,12 +34,13 @@ export default function DraftsPage() {
     }
   };
 
-  const deleteDraft = async (id: string) => {
-    if (!confirm('Delete this draft?')) return;
-    const success = await remove(id);
+  const deleteDraft = async () => {
+    if (!showDeleteConfirm) return;
+    const success = await remove(showDeleteConfirm);
     if (success) {
       await loadDrafts();
     }
+    setShowDeleteConfirm(null);
   };
 
   return (
@@ -78,6 +83,14 @@ export default function DraftsPage() {
               </div>
               <div className="draft-actions">
                 <button
+                  className="btn btn-ghost"
+                  onClick={() => setViewingProduct(draft)}
+                  title="View details"
+                >
+                  <ViewIcon />
+                  View
+                </button>
+                <button
                   className="btn btn-secondary"
                   onClick={() => {
                     setEditingProduct(draft);
@@ -94,7 +107,7 @@ export default function DraftsPage() {
                 </button>
                 <button
                   className="btn btn-danger"
-                  onClick={() => deleteDraft(draft.id)}
+                  onClick={() => setShowDeleteConfirm(draft.id)}
                 >
                   Delete
                 </button>
@@ -104,6 +117,19 @@ export default function DraftsPage() {
         </div>
       )}
 
+      {/* Product Detail Modal */}
+      {viewingProduct && (
+        <ProductDetailModal
+          product={viewingProduct}
+          onClose={() => setViewingProduct(null)}
+          onEdit={() => {
+            setEditingProduct(viewingProduct);
+            setIsFormOpen(true);
+          }}
+        />
+      )}
+
+      {/* Product Form Modal */}
       {isFormOpen && (
         <ProductFormModal
           product={editingProduct}
@@ -113,6 +139,18 @@ export default function DraftsPage() {
           }}
         />
       )}
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={!!showDeleteConfirm}
+        title="Delete Draft"
+        message="Are you sure you want to delete this draft? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmType="danger"
+        onConfirm={deleteDraft}
+        onCancel={() => setShowDeleteConfirm(null)}
+      />
 
       <style jsx>{`
         .drafts-page {
@@ -217,7 +255,6 @@ export default function DraftsPage() {
         }
 
         .btn {
-          flex: 1;
           padding: 10px 16px;
           font-family: var(--font-mono);
           font-size: 12px;
@@ -228,6 +265,20 @@ export default function DraftsPage() {
           cursor: pointer;
           transition: all 150ms ease;
           border: 1px solid transparent;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .btn-ghost {
+          background: transparent;
+          border-color: var(--color-white-border);
+          color: var(--color-ink-soft);
+        }
+
+        .btn-ghost:hover {
+          background: var(--color-white-grey);
+          color: var(--color-ink);
         }
 
         .btn-secondary {
@@ -291,5 +342,14 @@ export default function DraftsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function ViewIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M1 7s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z" />
+      <circle cx="7" cy="7" r="2" />
+    </svg>
   );
 }
