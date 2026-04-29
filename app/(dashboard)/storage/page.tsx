@@ -36,6 +36,8 @@ export default function StoragePage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDeleteFileConfirm, setShowDeleteFileConfirm] = useState<string | null>(null);
   const [showDeleteBucketConfirm, setShowDeleteBucketConfirm] = useState<string | null>(null);
+  const [showEmptyBucketConfirm, setShowEmptyBucketConfirm] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
 
@@ -160,6 +162,7 @@ export default function StoragePage() {
       loadFiles(activeBucket.name);
     }
     setSelectedFiles([]);
+    setShowBulkDeleteConfirm(false);
   };
 
   const openCreateBucketModal = () => {
@@ -262,6 +265,7 @@ export default function StoragePage() {
       toast.success(`Bucket emptied (${data.deletedCount} files removed)`);
       loadFiles(activeBucket.name);
     }
+    setShowEmptyBucketConfirm(false);
   };
 
   const getPublicUrl = (bucketName: string, fileName: string) => {
@@ -340,7 +344,7 @@ export default function StoragePage() {
                     </div>
                   </div>
                   <div className="bucket-actions">
-                    {activeBucket?.name === bucket.name && isSuperAdmin && (
+                    {isSuperAdmin && (
                       <>
                         <button
                           className="btn-icon-sm"
@@ -393,6 +397,22 @@ export default function StoragePage() {
                       : 'All types'}
                   </span>
                 </div>
+                {isSuperAdmin && (
+                  <div className="bucket-detail-actions">
+                    <button
+                      className="btn btn-sm btn-outline"
+                      onClick={() => openEditBucketModal(activeBucket)}
+                    >
+                      Edit Settings
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => setShowDeleteBucketConfirm(activeBucket.name)}
+                    >
+                      Delete Bucket
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="files-header">
@@ -409,7 +429,7 @@ export default function StoragePage() {
                   {selectedFiles.length > 0 && (
                     <>
                       <span className="selected-count">{selectedFiles.length} selected</span>
-                      <button className="btn btn-sm btn-danger" onClick={handleBulkDeleteFiles}>
+                      <button className="btn btn-sm btn-danger" onClick={() => setShowBulkDeleteConfirm(true)}>
                         Delete Selected
                       </button>
                       <button className="btn btn-sm btn-ghost" onClick={() => setSelectedFiles([])}>
@@ -418,7 +438,7 @@ export default function StoragePage() {
                     </>
                   )}
                   {isSuperAdmin && (
-                    <button className="btn btn-sm btn-outline" onClick={handleEmptyBucket}>
+                    <button className="btn btn-sm btn-outline" onClick={() => setShowEmptyBucketConfirm(true)}>
                       Empty Bucket
                     </button>
                   )}
@@ -668,10 +688,11 @@ export default function StoragePage() {
       <ConfirmDialog
         isOpen={!!showDeleteFileConfirm}
         title="Delete File"
-        message="Are you sure you want to delete this file? This cannot be undone."
-        confirmText="Delete"
+        message={`You are about to permanently delete "${showDeleteFileConfirm}". This action cannot be undone.`}
+        confirmText="Delete File"
         cancelText="Cancel"
         confirmType="danger"
+        requireTyping={showDeleteFileConfirm || ''}
         onConfirm={handleDeleteFile}
         onCancel={() => setShowDeleteFileConfirm(null)}
       />
@@ -679,12 +700,37 @@ export default function StoragePage() {
       <ConfirmDialog
         isOpen={!!showDeleteBucketConfirm}
         title="Delete Bucket"
-        message={`Deleting "${showDeleteBucketConfirm}" will permanently remove all files in this bucket. This cannot be undone.`}
+        message={`Deleting "${showDeleteBucketConfirm}" will permanently remove the bucket and ALL files inside it. This action cannot be undone.`}
         confirmText="Delete Bucket"
         cancelText="Cancel"
         confirmType="danger"
+        requireTyping={showDeleteBucketConfirm || ''}
         onConfirm={handleDeleteBucket}
         onCancel={() => setShowDeleteBucketConfirm(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={showEmptyBucketConfirm}
+        title="Empty Bucket"
+        message={`This will permanently delete ALL files in "${activeBucket?.name}". The bucket will remain but all contents will be lost. This action cannot be undone.`}
+        confirmText="Empty Bucket"
+        cancelText="Cancel"
+        confirmType="danger"
+        requireTyping={activeBucket?.name || ''}
+        onConfirm={handleEmptyBucket}
+        onCancel={() => setShowEmptyBucketConfirm(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={showBulkDeleteConfirm}
+        title="Delete Multiple Files"
+        message={`You are about to permanently delete ${selectedFiles.length} files from "${activeBucket?.name}". This action cannot be undone.`}
+        confirmText={`Delete ${selectedFiles.length} Files`}
+        cancelText="Cancel"
+        confirmType="danger"
+        requireTyping="DELETE"
+        onConfirm={handleBulkDeleteFiles}
+        onCancel={() => setShowBulkDeleteConfirm(false)}
       />
 
       <style jsx>{`
@@ -824,12 +870,13 @@ export default function StoragePage() {
         /* Bucket Details */
         .bucket-details {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(4, 1fr) auto;
           gap: 12px;
           padding: 16px;
           background: var(--color-white-grey);
           border-radius: 4px;
           margin-bottom: 16px;
+          align-items: center;
         }
 
         .bucket-detail-row {
@@ -863,6 +910,14 @@ export default function StoragePage() {
         .mime-types {
           font-size: 12px;
           color: var(--color-ink-mid);
+        }
+
+        .bucket-detail-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          justify-content: flex-end;
+          padding-top: 8px;
         }
 
         .files-header {

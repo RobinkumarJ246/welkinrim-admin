@@ -121,13 +121,14 @@ export default function SettingsPage() {
 
   const loadAdminUsers = async () => {
     setLoadingAdmins(true);
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('id, email, full_name, is_super_admin, last_login, created_at')
-      .order('created_at', { ascending: true });
-
-    if (!error && data) {
-      setAdminUsers(data as AdminUser[]);
+    const response = await fetch('/api/admin?action=listAdminUsers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listAdminUsers' }),
+    });
+    const data = await response.json();
+    if (data.users) {
+      setAdminUsers(data.users as AdminUser[]);
     }
     setLoadingAdmins(false);
   };
@@ -170,65 +171,30 @@ export default function SettingsPage() {
 
     setInvitingUser(true);
 
-    // Check if user already exists in profiles
-    const { data: existingProfile } = await supabase
-      .from('user_profiles')
-      .select('id, email')
-      .eq('email', inviteEmail)
-      .single();
-
-    if (existingProfile) {
-      setInviteError('A user with this email already exists');
-      setInvitingUser(false);
-      return;
-    }
-
-    // Create a pending invitation profile for the invited user
-    // We use a placeholder UUID that will be updated when they sign up
-    const placeholderId = crypto.randomUUID();
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .insert({
-        id: placeholderId,
+    const response = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'inviteUser',
         email: inviteEmail,
-        full_name: inviteName || inviteEmail.split('@')[0],
-        role: 'admin',
-        is_super_admin: false,
-        invited_by: user?.id,
-        invited_at: new Date().toISOString(),
-      });
-
-    if (profileError) {
-      setInviteError('Failed to create invitation: ' + profileError.message);
-      setInvitingUser(false);
-      return;
-    }
-
-    // Send a magic link email to the invited user so they can set up their account
-    const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-      email: inviteEmail,
-      options: {
-        emailRedirectTo: `${window.location.origin}/login?mode=setup`,
-        data: {
-          full_name: inviteName,
-          invited_by: user?.id,
-          placeholder_id: placeholderId,
-        },
-      },
+        fullName: inviteName || inviteEmail.split('@')[0],
+        invitedBy: user?.id,
+      }),
     });
 
-    if (magicLinkError) {
-      // Magic link failed, but profile was created
-      setInviteSuccess(`Profile created for ${inviteEmail}. They can sign up at the login page to activate their account.`);
+    const data = await response.json();
+
+    if (data.error) {
+      setInviteError('Failed to create invitation: ' + data.error);
     } else {
-      setInviteSuccess(`Invitation email sent to ${inviteEmail}! They can click the link to set their password and activate their admin account.`);
+      setInviteSuccess(data.message || `Invitation sent to ${inviteEmail}!`);
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteName('');
+      loadAdminUsers();
     }
 
-    setShowInviteModal(false);
-    setInviteEmail('');
-    setInviteName('');
     setInvitingUser(false);
-    loadAdminUsers();
   };
 
   const setInviteSuccess = (message: string) => {
@@ -239,19 +205,24 @@ export default function SettingsPage() {
   const handleRemoveAdmin = async () => {
     if (!adminToRemove) return;
 
-    // Soft delete - mark as removed
-    const { error } = await supabase
-      .from('user_profiles')
-      .delete()
-      .eq('id', adminToRemove.id);
+    const response = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'removeAdmin',
+        userId: adminToRemove.id,
+      }),
+    });
 
-    if (!error) {
+    const data = await response.json();
+
+    if (data.success) {
       setProfileSuccess(`Admin "${adminToRemove.full_name || adminToRemove.email}" removed`);
       setShowRemoveConfirm(false);
       setAdminToRemove(null);
       loadAdminUsers();
     } else {
-      setProfileError('Failed to remove admin: ' + error.message);
+      setProfileError('Failed to remove admin: ' + data.error);
     }
   };
 
