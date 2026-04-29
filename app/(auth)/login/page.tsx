@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -13,13 +14,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // BUG FIX: Removed unused `Link` import
-  // BUG FIX: Spinner animation now uses a pure CSS @keyframes solution
-  //          instead of mixing Tailwind's `animate-spin` class with scoped JSX CSS,
-  //          which caused the spinner to never rotate.
-  // BUG FIX: Cookie is only set after a confirmed successful login response.
-  //          Previously the cookie logic and redirect ran without proper async sequencing.
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +24,6 @@ export default function LoginPage() {
       const success = await login(username, password);
 
       if (success) {
-        // Set session cookie for middleware only after confirmed success
         document.cookie = 'welkinrim-session=true; path=/; max-age=86400; SameSite=Strict';
         const from = searchParams.get('from');
         router.push(from || '/');
@@ -165,7 +158,6 @@ export default function LoginPage() {
                 disabled={isLoading}
                 aria-busy={isLoading}
               >
-                {/* BUG FIX: spinner now uses CSS animation via class, not Tailwind animate-spin */}
                 {isLoading ? (
                   <>
                     <span className="spinner" aria-hidden="true" />
@@ -442,7 +434,6 @@ export default function LoginPage() {
           opacity: 0.5;
           cursor: not-allowed;
         }
-        /* Reorder so icon doesn't sit on top of focus ring — keep icon after input in DOM but position it */
         .field-wrap .field-icon { z-index: 1; }
         .field-wrap .field-input { z-index: 0; }
 
@@ -485,7 +476,7 @@ export default function LoginPage() {
           background: rgba(232,168,0,0.7);
         }
 
-        /* ─── Spinner — BUG FIX: pure CSS, no Tailwind class needed ─── */
+        /* ─── Spinner ─── */
         .spinner {
           display: inline-block;
           width: 16px;
@@ -545,5 +536,80 @@ export default function LoginPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="login-page">
+      <div className="login-shell">
+        <div className="form-panel">
+          <div className="form-inner">
+            <div className="form-header">
+              <div className="form-eyebrow">SECURE ACCESS</div>
+              <h2 className="form-title">Sign In</h2>
+              <p className="form-subtitle">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <style jsx>{`
+        .login-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: stretch;
+          justify-content: center;
+          background: #0E0E0F;
+        }
+        .login-shell {
+          display: flex;
+          width: 100%;
+          max-width: 960px;
+          margin: auto;
+          min-height: 100vh;
+          align-items: stretch;
+        }
+        .form-panel {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 24px;
+        }
+        .form-inner {
+          width: 100%;
+          max-width: 380px;
+        }
+        .form-eyebrow {
+          font-family: var(--font-mono, monospace);
+          font-size: 10px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #E8A800;
+          margin-bottom: 12px;
+        }
+        .form-title {
+          font-family: var(--font-display, 'Georgia', serif);
+          font-size: 30px;
+          font-weight: 700;
+          letter-spacing: 0.03em;
+          color: #FFFFFF;
+          margin-bottom: 10px;
+        }
+        .form-subtitle {
+          font-family: var(--font-body, sans-serif);
+          font-size: 14px;
+          color: rgba(255,255,255,0.4);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
   );
 }

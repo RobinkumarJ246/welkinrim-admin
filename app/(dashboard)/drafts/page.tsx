@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useProducts } from '@/hooks/useProducts';
 import type { SupabaseProduct } from '@/lib/products';
 import { ProductFormModal } from '@/components/products/ProductFormModal';
 
 export default function DraftsPage() {
+  const { getDrafts, publish, remove } = useProducts();
   const [drafts, setDrafts] = useState<SupabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<SupabaseProduct | null>(null);
@@ -17,47 +18,22 @@ export default function DraftsPage() {
 
   const loadDrafts = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_published', false)
-      .eq('is_deleted', false)
-      .order('updated_at', { ascending: false });
-
-    setDrafts((data as any[])?.map(row => ({
-      ...(row.data as any),
-      id: row.id,
-      data: row.data,
-      series: row.series,
-      model: row.model,
-      category: row.category,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    })) || []);
-
+    const data = await getDrafts();
+    setDrafts(data);
     setLoading(false);
   };
 
   const publishDraft = async (id: string) => {
-    const { error } = await supabase
-      .from('products')
-      .update({ is_published: true })
-      .eq('id', id);
-
-    if (!error) {
+    const success = await publish(id);
+    if (success) {
       await loadDrafts();
     }
   };
 
   const deleteDraft = async (id: string) => {
     if (!confirm('Delete this draft?')) return;
-
-    const { error } = await supabase
-      .from('products')
-      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (!error) {
+    const success = await remove(id);
+    if (success) {
       await loadDrafts();
     }
   };
@@ -85,12 +61,19 @@ export default function DraftsPage() {
             <div key={draft.id} className="draft-card">
               <div className="draft-badge">Draft</div>
               <div className="draft-content">
-                <h3>{draft.model}</h3>
+                <h3>{draft.name || draft.model}</h3>
                 <p className="draft-meta">
-                  {draft.category.toUpperCase()} · {draft.series}
+                  {draft.seriesLabel || draft.series?.toUpperCase()} · {draft.tag}
                 </p>
+                {draft.keySpecs && draft.keySpecs.length > 0 && (
+                  <div className="draft-specs">
+                    {draft.keySpecs.slice(0, 3).map((spec, i) => (
+                      <span key={i} className="spec-item">{spec.label}: {spec.value}</span>
+                    ))}
+                  </div>
+                )}
                 <p className="draft-date">
-                  Last edited {new Date(draft.updated_at).toLocaleDateString()}
+                  Last edited {draft.updated_at ? new Date(draft.updated_at).toLocaleDateString() : 'N/A'}
                 </p>
               </div>
               <div className="draft-actions">
@@ -209,6 +192,22 @@ export default function DraftsPage() {
           font-size: 11px;
           color: var(--color-ink-soft);
           margin: 0 0 16px 0;
+        }
+
+        .draft-specs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+
+        .spec-item {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--color-ink-mid);
+          background: var(--color-white-grey);
+          padding: 4px 8px;
+          border-radius: 3px;
         }
 
         .draft-actions {

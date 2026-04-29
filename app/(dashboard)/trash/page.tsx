@@ -2,12 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useProducts } from '@/hooks/useProducts';
+import { useSeries } from '@/hooks/useSeries';
 import type { SupabaseProduct } from '@/lib/products';
-import type { Series } from '@/hooks/useSeries';
 
 export default function TrashPage() {
+  const { getDeleted, restore, remove: removeProduct } = useProducts();
+  const { getDeleted: getDeletedSeries, restore: restoreSeries, remove: removeSeries } = useSeries();
+
   const [deletedProducts, setDeletedProducts] = useState<SupabaseProduct[]>([]);
-  const [deletedSeries, setDeletedSeries] = useState<Series[]>([]);
+  const [deletedSeries, setDeletedSeries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'series'>('products');
 
@@ -17,41 +21,33 @@ export default function TrashPage() {
 
   const loadDeleted = async () => {
     setLoading(true);
-    
-    // Load deleted products
-    const { data: products } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_deleted', true)
-      .order('deleted_at', { ascending: false });
-
-    // Load deleted series
-    const { data: series } = await supabase
-      .from('series')
-      .select('*')
-      .eq('is_deleted', true)
-      .order('deleted_at', { ascending: false });
-
-    setDeletedProducts((products as any[])?.map(row => ({
-      ...(row.data as any),
-      id: row.id,
-      data: row.data,
-      series: row.series,
-      model: row.model,
-      category: row.category,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      deleted_at: row.deleted_at,
-    })) || []);
-
-    setDeletedSeries(series as Series[] || []);
+    const products = await getDeleted();
+    const series = await getDeletedSeries();
+    setDeletedProducts(products);
+    setDeletedSeries(series);
     setLoading(false);
   };
 
-  const restoreProduct = async (id: string) => {
+  const handleRestoreProduct = async (id: string) => {
+    const success = await restore(id);
+    if (success) {
+      await loadDeleted();
+    }
+  };
+
+  const handleRestoreSeries = async (id: string) => {
+    const success = await restoreSeries(id);
+    if (success) {
+      await loadDeleted();
+    }
+  };
+
+  const permanentlyDeleteProduct = async (id: string) => {
+    if (!confirm('Permanently delete this product? This CANNOT be undone!')) return;
+    // Hard delete - actually remove from database
     const { error } = await supabase
       .from('products')
-      .update({ is_deleted: false, deleted_at: null })
+      .delete()
       .eq('id', id);
 
     if (!error) {
@@ -59,22 +55,11 @@ export default function TrashPage() {
     }
   };
 
-  const restoreSeries = async (id: string) => {
+  const permanentlyDeleteSeries = async (id: string) => {
+    if (!confirm('Permanently delete this series? This CANNOT be undone!')) return;
+    // Hard delete - actually remove from database
     const { error } = await supabase
       .from('series')
-      .update({ is_deleted: false, deleted_at: null })
-      .eq('id', id);
-
-    if (!error) {
-      await loadDeleted();
-    }
-  };
-
-  const permanentlyDelete = async (id: string, type: 'product' | 'series') => {
-    if (!confirm(`Permanently delete this ${type}? This CANNOT be undone!`)) return;
-
-    const { error } = await supabase
-      .from(type === 'product' ? 'products' : 'series')
       .delete()
       .eq('id', id);
 
@@ -114,26 +99,33 @@ export default function TrashPage() {
           {activeTab === 'products' && (
             <div className="items-list">
               {deletedProducts.length === 0 ? (
-                <div className="empty">No deleted products</div>
+                <div className="empty">
+                  <div className="empty-icon">🗑️</div>
+                  <h3>No deleted products</h3>
+                  <p>Products moved to trash will appear here</p>
+                </div>
               ) : (
                 deletedProducts.map(product => (
                   <div key={product.id} className="trash-item">
                     <div className="item-info">
-                      <h3>{product.model}</h3>
+                      <h3>{product.name || product.model}</h3>
                       <p className="item-meta">
-                        Deleted {new Date(product.deleted_at!).toLocaleString()}
+                        {product.seriesLabel || product.series?.toUpperCase()} · {product.tag}
+                      </p>
+                      <p className="item-date">
+                        Deleted {product.deleted_at ? new Date(product.deleted_at).toLocaleString() : 'N/A'}
                       </p>
                     </div>
                     <div className="item-actions">
                       <button
                         className="btn btn-secondary"
-                        onClick={() => restoreProduct(product.id)}
+                        onClick={() => handleRestoreProduct(product.id)}
                       >
                         Restore
                       </button>
                       <button
                         className="btn btn-danger"
-                        onClick={() => permanentlyDelete(product.id, 'product')}
+                        onClick={() => permanentlyDeleteProduct(product.id)}
                       >
                         Delete Forever
                       </button>
@@ -147,26 +139,31 @@ export default function TrashPage() {
           {activeTab === 'series' && (
             <div className="items-list">
               {deletedSeries.length === 0 ? (
-                <div className="empty">No deleted series</div>
+                <div className="empty">
+                  <div className="empty-icon">🗑️</div>
+                  <h3>No deleted series</h3>
+                  <p>Series moved to trash will appear here</p>
+                </div>
               ) : (
                 deletedSeries.map(series => (
                   <div key={series.id} className="trash-item">
                     <div className="item-info">
                       <h3>{series.label}</h3>
-                      <p className="item-meta">
-                        Deleted {new Date(series.deleted_at!).toLocaleString()}
+                      <p className="item-meta">ID: {series.id}</p>
+                      <p className="item-date">
+                        Deleted {series.deleted_at ? new Date(series.deleted_at).toLocaleString() : 'N/A'}
                       </p>
                     </div>
                     <div className="item-actions">
                       <button
                         className="btn btn-secondary"
-                        onClick={() => restoreSeries(series.id)}
+                        onClick={() => handleRestoreSeries(series.id)}
                       >
                         Restore
                       </button>
                       <button
                         className="btn btn-danger"
-                        onClick={() => permanentlyDelete(series.id, 'series')}
+                        onClick={() => permanentlyDeleteSeries(series.id)}
                       >
                         Delete Forever
                       </button>
@@ -259,6 +256,13 @@ export default function TrashPage() {
           font-family: var(--font-mono);
           font-size: 12px;
           color: var(--color-ink-soft);
+          margin: 0 0 2px 0;
+        }
+
+        .item-date {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--color-ink-mid);
           margin: 0;
         }
 
@@ -297,7 +301,29 @@ export default function TrashPage() {
           filter: brightness(0.9);
         }
 
-        .empty, .loading {
+        .empty {
+          text-align: center;
+          padding: 60px 20px;
+        }
+
+        .empty-icon {
+          font-size: 48px;
+          margin-bottom: 12px;
+        }
+
+        .empty h3 {
+          font-family: var(--font-display);
+          font-size: 18px;
+          margin: 0 0 8px 0;
+        }
+
+        .empty p {
+          font-family: var(--font-body);
+          color: var(--color-ink-soft);
+          margin: 0;
+        }
+
+        .loading {
           text-align: center;
           padding: 60px 20px;
           color: var(--color-ink-soft);

@@ -13,6 +13,7 @@ export interface User {
   username: string; // email
   name: string;
   role: 'admin' | 'editor';
+  is_super_admin: boolean;
   avatar?: string;
 }
 
@@ -29,16 +30,65 @@ export const auth = {
       return null;
     }
 
-    const user: User = {
-      id: data.user.id,
-      username: data.user.email ?? username,
-      name: data.user.user_metadata?.full_name ?? (data.user.email ?? 'Admin User'),
-      // For now, treat all authenticated users as admins
-      role: 'admin',
-      avatar: data.user.user_metadata?.avatar_url,
-    };
+    const user = await this.buildUser(data.user.id, data.user.email ?? username, data.user.user_metadata);
+    if (user) {
+      this.saveSession(user);
+    }
+    return user;
+  },
 
-    this.saveSession(user);
+  async buildUser(id: string, email: string, metadata?: Record<string, any>): Promise<User | null> {
+    // Fetch user profile to get is_super_admin status
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('is_super_admin, role, full_name, avatar_url')
+      .eq('id', id)
+      .single();
+
+    // Create profile if doesn't exist
+    if (!profile) {
+      const newProfile = {
+        id,
+        email,
+        full_name: metadata?.full_name || email,
+        role: 'admin',
+        is_super_admin: false,
+      };
+      await supabase.from('user_profiles').insert(newProfile);
+    }
+
+    // Update last_login timestamp
+    await supabase
+      .from('user_profiles')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', id);
+
+    return {
+      id,
+      username: email,
+      name: profile?.full_name ?? metadata?.full_name ?? email,
+      role: (profile?.role ?? 'admin') as 'admin' | 'editor',
+      is_super_admin: profile?.is_super_admin ?? false,
+      avatar: profile?.avatar_url ?? metadata?.avatar_url,
+    };
+  },
+
+  async refreshSession(): Promise<User | null> {
+    const session = this.getSession();
+    if (!session) return null;
+
+    // Get current auth user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      this.logout();
+      return null;
+    }
+
+    // Refresh profile data
+    const user = await this.buildUser(authUser.id, authUser.email ?? session.username, authUser.user_metadata);
+    if (user) {
+      this.saveSession(user);
+    }
     return user;
   },
 

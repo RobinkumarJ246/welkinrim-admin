@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   cancelText?: string;
   confirmType?: 'danger' | 'warning' | 'primary';
   requireTyping?: string; // Text user must type to confirm
+  isLoading?: boolean; // Show loading state
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -22,6 +23,7 @@ export function ConfirmDialog({
   cancelText = 'Cancel',
   confirmType = 'danger',
   requireTyping,
+  isLoading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -89,9 +91,9 @@ export function ConfirmDialog({
             type="button"
             className={`btn btn-${confirmType}`}
             onClick={onConfirm}
-            disabled={!isConfirmEnabled}
+            disabled={!isConfirmEnabled || isLoading}
           >
-            {confirmText}
+            {isLoading ? 'Processing...' : confirmText}
           </button>
         </div>
       </div>

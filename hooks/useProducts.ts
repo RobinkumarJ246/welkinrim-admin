@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import type { Product, SupabaseProduct } from '@/lib/products';
+import type { Product, SupabaseProduct, PerfRow, SpecItem } from '@/lib/products';
 import { supabase } from '@/lib/supabaseClient';
 
 interface ProductRow {
@@ -10,6 +10,11 @@ interface ProductRow {
   series: string;
   model: string;
   data: Product;
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  is_published: boolean;
 }
 
 export function useProducts() {
@@ -31,15 +36,15 @@ export function useProducts() {
       return;
     }
 
+    // Map Supabase rows to SupabaseProduct format
     const mapped = (data as ProductRow[]).map(row => ({
-      ...(row.data as Product),
+      ...row.data,
       id: row.id,
-      data: row.data,
-      series: row.series,
-      model: row.model,
       category: row.category as any,
-      created_at: (row as any).created_at,
-      updated_at: (row as any).updated_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      is_published: row.is_published,
+      is_deleted: row.is_deleted,
     }));
 
     setProducts(mapped);
@@ -62,12 +67,17 @@ export function useProducts() {
     return products.find(p => p.id === id);
   }, [products]);
 
-  const create = useCallback(async (product: Product): Promise<boolean> => {
+  const create = useCallback(async (product: Product, isDraft = false): Promise<boolean> => {
+    // Determine category from series
+    const category = getCategoryFromSeries(product.series);
+
     const { error } = await supabase.from('products').insert({
-      category: product.category,
-      series: (product as any).series,
-      model: (product as any).model,
+      id: product.id,
+      category,
+      series: product.series,
+      model: product.model,
       data: product,
+      is_published: !isDraft, // Draft if isDraft=true, otherwise published
     });
 
     if (error) {
@@ -83,14 +93,16 @@ export function useProducts() {
     const existing = products.find(p => p.id === id);
     if (!existing) return false;
 
+    // Merge updates with existing data
     const merged = { ...existing, ...updates } as Product;
+    const category = getCategoryFromSeries(merged.series);
 
     const { error } = await supabase
       .from('products')
       .update({
-        category: merged.category,
-        series: (merged as any).series,
-        model: (merged as any).model,
+        category,
+        series: merged.series,
+        model: merged.model,
         data: merged,
       })
       .eq('id', id);
@@ -110,6 +122,7 @@ export function useProducts() {
       .from('products')
       .update({ is_deleted: true, deleted_at: new Date().toISOString() })
       .eq('id', id);
+
     if (error) {
       console.error('Error deleting product', error);
       return false;
@@ -119,16 +132,105 @@ export function useProducts() {
     return true;
   }, [loadFromSupabase]);
 
-  const getByCategory = useCallback((category: string): Product[] => {
-    if (category === 'all') return products;
-    if (category === 'haemng') {
-      return products.filter(p => p.category === 'motor' && p.series === 'Haemng');
+  const restore = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('products')
+      .update({ is_deleted: false, deleted_at: null })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error restoring product', error);
+      return false;
     }
-    if (category === 'maelard') {
-      return products.filter(p => p.category === 'motor' && p.series === 'Maelard');
+
+    await loadFromSupabase();
+    return true;
+  }, [loadFromSupabase]);
+
+  const unpublish = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('products')
+      .update({ is_published: false })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error unpublishing product', error);
+      return false;
     }
-    return products.filter(p => p.category === category);
+
+    await loadFromSupabase();
+    return true;
+  }, [loadFromSupabase]);
+
+  const publish = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('products')
+      .update({ is_published: true })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error publishing product', error);
+      return false;
+    }
+
+    await loadFromSupabase();
+    return true;
+  }, [loadFromSupabase]);
+
+  // Get products filtered by series/category
+  const getBySeries = useCallback((series: string): SupabaseProduct[] => {
+    if (series === 'all') return products;
+    return products.filter(p => p.series === series);
   }, [products]);
+
+  // Get drafts (unpublished products)
+  const getDrafts = useCallback(async (): Promise<SupabaseProduct[]> => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_deleted', false)
+      .eq('is_published', false)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading drafts', error);
+      return [];
+    }
+
+    return (data as ProductRow[]).map(row => ({
+      ...row.data,
+      id: row.id,
+      category: row.category as any,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      is_published: row.is_published,
+      is_deleted: row.is_deleted,
+    }));
+  }, []);
+
+  // Get deleted products (trash)
+  const getDeleted = useCallback(async (): Promise<SupabaseProduct[]> => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_deleted', true)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading deleted products', error);
+      return [];
+    }
+
+    return (data as ProductRow[]).map(row => ({
+      ...row.data,
+      id: row.id,
+      category: row.category as any,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      is_published: row.is_published,
+      is_deleted: row.is_deleted,
+    }));
+  }, []);
 
   return {
     products,
@@ -138,7 +240,21 @@ export function useProducts() {
     create,
     update,
     remove,
-    getByCategory,
+    restore,
+    unpublish,
+    publish,
+    getBySeries,
+    getDrafts,
+    getDeleted,
     refresh,
   };
+}
+
+// Helper to determine category from series
+function getCategoryFromSeries(series: string): string {
+  if (series === 'haemng' || series === 'maelard') return 'motor';
+  if (series === 'esc') return 'esc';
+  if (series === 'fc') return 'fc';
+  if (series === 'ips') return 'ips';
+  return 'other';
 }

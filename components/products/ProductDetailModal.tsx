@@ -1,7 +1,7 @@
 'use client';
 
 import { SupabaseProduct } from '@/lib/products';
-import type { SpecItem } from '@/lib/productUtils';
+import type { SpecItem } from '@/lib/products';
 
 interface ProductDetailModalProps {
   product: SupabaseProduct;
@@ -10,11 +10,7 @@ interface ProductDetailModalProps {
 }
 
 export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailModalProps) {
-  const productData = (product as any).data || product;
-  
-  console.log('ProductDetailModal - product:', product);
-  console.log('ProductDetailModal - productData:', productData);
-  
+
   // Format date
   const formatDate = (date: string | undefined) => {
     if (!date) return '—';
@@ -32,7 +28,7 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
       <div className="modal product-detail-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">{product.model}</h2>
+            <h2 className="modal-title">{product.name || product.model}</h2>
             <p className="modal-subtitle">{product.id}</p>
           </div>
           <button type="button" className="modal-close" onClick={onClose}>
@@ -51,7 +47,15 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
               </div>
               <div className="detail-item">
                 <span className="detail-label">Series:</span>
-                <span className="detail-value">{product.series || '—'}</span>
+                <span className="detail-value">{product.seriesLabel || product.series}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Tag:</span>
+                <span className="detail-value">{product.tag}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Application:</span>
+                <span className="detail-value">{product.application}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Created:</span>
@@ -61,24 +65,36 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
                 <span className="detail-label">Last Updated:</span>
                 <span className="detail-value mono">{formatDate(product.updated_at)}</span>
               </div>
+              <div className="detail-item">
+                <span className="detail-label">Status:</span>
+                <span className="detail-value badge status-badge">
+                  {product.is_published ? 'Published' : 'Draft'}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Images Section */}
-          {(productData.thumbnailUrl || productData.iconUrl) && (
+          {(product.thumbnailUrl || product.iconUrl || product.wireframeUrl) && (
             <div className="detail-section">
               <h3 className="section-title">Images</h3>
               <div className="images-grid">
-                {productData.thumbnailUrl && (
+                {product.thumbnailUrl && (
                   <div className="image-container">
                     <label>Thumbnail</label>
-                    <img src={productData.thumbnailUrl} alt="Product thumbnail" />
+                    <img src={product.thumbnailUrl} alt="Product thumbnail" />
                   </div>
                 )}
-                {productData.iconUrl && (
+                {product.iconUrl && (
                   <div className="image-container small">
                     <label>Icon</label>
-                    <img src={productData.iconUrl} alt="Product icon" />
+                    <img src={product.iconUrl} alt="Product icon" />
+                  </div>
+                )}
+                {product.wireframeUrl && (
+                  <div className="image-container">
+                    <label>Wireframe</label>
+                    <img src={product.wireframeUrl} alt="Product wireframe" />
                   </div>
                 )}
               </div>
@@ -86,11 +102,11 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
           )}
 
           {/* Key Specifications Section */}
-          {productData.keySpecs && productData.keySpecs.length > 0 && (
+          {product.keySpecs && product.keySpecs.length > 0 && (
             <div className="detail-section">
               <h3 className="section-title">Key Specifications</h3>
               <div className="spec-grid">
-                {productData.keySpecs.map((spec: SpecItem, index: number) => (
+                {product.keySpecs.map((spec: SpecItem, index: number) => (
                   <div key={index} className="spec-item">
                     <span className="spec-label">{spec.label}</span>
                     <span className="spec-value">{spec.value}</span>
@@ -101,11 +117,11 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
           )}
 
           {/* All Specifications Section */}
-          {productData.allSpecs && productData.allSpecs.length > 0 && (
+          {product.allSpecs && product.allSpecs.length > 0 && (
             <div className="detail-section">
               <h3 className="section-title">All Specifications</h3>
               <div className="spec-grid">
-                {productData.allSpecs.map((spec: SpecItem, index: number) => (
+                {product.allSpecs.map((spec: SpecItem, index: number) => (
                   <div key={index} className="spec-item">
                     <span className="spec-label">{spec.label}</span>
                     <span className="spec-value">{spec.value}</span>
@@ -115,17 +131,37 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
             </div>
           )}
 
-          {/* Custom Fields Section */}
-          {productData.customFields && productData.customFields.length > 0 && (
+          {/* Performance Data Section */}
+          {product.perf && product.perf.length > 0 && (
             <div className="detail-section">
-              <h3 className="section-title">Additional Fields</h3>
-              <div className="spec-grid">
-                {productData.customFields.map((field: any, index: number) => (
-                  <div key={index} className="spec-item">
-                    <span className="spec-label">{field.key}</span>
-                    <span className="spec-value">{field.value}</span>
-                  </div>
-                ))}
+              <h3 className="section-title">Performance Data</h3>
+              <div className="perf-table-container">
+                <table className="perf-table">
+                  <thead>
+                    <tr>
+                      <th>Throttle</th>
+                      <th>Voltage</th>
+                      <th>Current</th>
+                      <th>Power</th>
+                      <th>Thrust</th>
+                      {product.perf[0].speed && <th>Speed</th>}
+                      {product.perf[0].efficiency && <th>Efficiency</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {product.perf.map((row, index) => (
+                      <tr key={index}>
+                        <td className="mono">{row.throttle}</td>
+                        <td className="mono">{row.voltage || '—'}</td>
+                        <td className="mono">{row.current || '—'}</td>
+                        <td className="mono">{row.power || '—'}</td>
+                        <td className="mono">{row.thrust || '—'}</td>
+                        {row.speed && <td className="mono">{row.speed}</td>}
+                        {row.efficiency && <td className="mono">{row.efficiency}</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -343,6 +379,41 @@ export function ProductDetailModal({ product, onClose, onEdit }: ProductDetailMo
           font-size: 15px;
           font-weight: 500;
           color: var(--color-ink);
+        }
+
+        .status-badge {
+          background: #d4edda;
+          color: #155724;
+        }
+
+        .perf-table-container {
+          overflow-x: auto;
+        }
+
+        .perf-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-family: var(--font-mono);
+          font-size: 13px;
+        }
+
+        .perf-table th {
+          padding: 8px 12px;
+          text-align: left;
+          font-size: 11px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--color-ink-soft);
+          border-bottom: 1px solid var(--color-white-border);
+        }
+
+        .perf-table td {
+          padding: 8px 12px;
+          border-bottom: 1px solid var(--color-white-border);
+        }
+
+        .perf-table tbody tr:last-child td {
+          border-bottom: none;
         }
       `}</style>
     </div>

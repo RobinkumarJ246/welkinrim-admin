@@ -8,22 +8,32 @@ import { ProductFormModal } from '@/components/products/ProductFormModal';
 import { ProductDetailModal } from '@/components/products/ProductDetailModal';
 import { ProductTableSkeleton } from '@/components/loading/SkeletonLoader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { supabase } from '@/lib/supabaseClient';
+import type { Product, SupabaseProduct, ProductSeries } from '@/lib/products';
+import { createEmptyProduct } from '@/lib/products';
+import { useToast } from '@/context/ToastContext';
 
 type CategoryFilter = 'all' | 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips';
 type SortKey = 'model' | 'series' | 'category' | 'weight';
 type SortDir = 'asc' | 'desc';
 
 export default function ProductsPage() {
-  const { products, loading, remove } = useProducts();
+  const { products, loading, remove, create, update, publish, unpublish } = useProducts();
+  const toast = useToast();
 
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('model');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingProduct, setEditingProduct] = useState<typeof products[0] | null>(null);
-  const [viewingProduct, setViewingProduct] = useState<typeof products[0] | null>(null);
+  const [editingProduct, setEditingProduct] = useState<SupabaseProduct | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<SupabaseProduct | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<typeof products[0] | null>(null);
+  const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<SupabaseProduct | null>(null);
+  const [duplicateProduct, setDuplicateProduct] = useState<SupabaseProduct | null>(null);
+
+  // Bulk delete confirmation
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
+  const [bulkTrashIds, setBulkTrashIds] = useState<string[]>([]);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -31,9 +41,9 @@ export default function ProductsPage() {
     // Category filter
     if (activeCategory !== 'all') {
       if (activeCategory === 'haemng') {
-        result = result.filter(p => p.category === 'motor' && (p.series === 'haemng' || p.series === 'Haemng'));
+        result = result.filter(p => p.category === 'motor' && p.series === 'haemng');
       } else if (activeCategory === 'maelard') {
-        result = result.filter(p => p.category === 'motor' && (p.series === 'maelard' || p.series === 'Maelard'));
+        result = result.filter(p => p.category === 'motor' && p.series === 'maelard');
       } else {
         result = result.filter(p => p.category === activeCategory);
       }
@@ -45,7 +55,8 @@ export default function ProductsPage() {
       result = result.filter(p =>
         p.model.toLowerCase().includes(query) ||
         p.id.toLowerCase().includes(query) ||
-        ('series' in p && p.series.toLowerCase().includes(query))
+        (p.name && p.name.toLowerCase().includes(query)) ||
+        p.series.toLowerCase().includes(query)
       );
     }
 
@@ -56,22 +67,23 @@ export default function ProductsPage() {
 
       switch (sortKey) {
         case 'model':
-          aVal = ((a as any).model || '').toLowerCase();
-          bVal = ((b as any).model || '').toLowerCase();
+          aVal = (a.name || a.model).toLowerCase();
+          bVal = (b.name || b.model).toLowerCase();
           break;
         case 'series':
-          aVal = ((a as any).series || '').toLowerCase();
-          bVal = ((b as any).series || '').toLowerCase();
+          aVal = (a.seriesLabel || a.series).toLowerCase();
+          bVal = (b.seriesLabel || b.series).toLowerCase();
           break;
         case 'category':
-          aVal = ((a as any).category || '').toLowerCase();
-          bVal = ((b as any).category || '').toLowerCase();
+          aVal = (a.category || '').toLowerCase();
+          bVal = (b.category || '').toLowerCase();
           break;
         case 'weight':
-          const aData = (a as any).data || a;
-          const bData = (b as any).data || b;
-          aVal = aData.weight || 0;
-          bVal = bData.weight || 0;
+          // Extract weight from allSpecs
+          const aWeight = a.allSpecs?.find(s => s.label.toLowerCase().includes('weight'))?.value || '0';
+          const bWeight = b.allSpecs?.find(s => s.label.toLowerCase().includes('weight'))?.value || '0';
+          aVal = parseInt(aWeight.match(/\d+/)?.[0] || '0');
+          bVal = parseInt(bWeight.match(/\d+/)?.[0] || '0');
           break;
       }
 
@@ -92,18 +104,23 @@ export default function ProductsPage() {
     }
   };
 
-  const handleEdit = (product: typeof products[0]) => {
+  const handleEdit = (product: SupabaseProduct) => {
     setEditingProduct(product);
     setIsFormOpen(true);
   };
 
-  const handleView = (product: typeof products[0]) => {
+  const handleView = (product: SupabaseProduct) => {
     setViewingProduct(product);
   };
 
   const handleDelete = async () => {
     if (!deleteConfirmProduct) return;
-    await remove(deleteConfirmProduct.id);
+    const success = await remove(deleteConfirmProduct.id);
+    if (success) {
+      toast.success(`"${deleteConfirmProduct.name || deleteConfirmProduct.model}" moved to trash`);
+    } else {
+      toast.error('Failed to delete product');
+    }
     setDeleteConfirmProduct(null);
   };
 
@@ -112,8 +129,87 @@ export default function ProductsPage() {
     setIsFormOpen(true);
   };
 
-  const haemngCount = products.filter(p => p.category === 'motor' && (p.series === 'haemng' || p.series === 'Haemng')).length;
-  const maelardCount = products.filter(p => p.category === 'motor' && (p.series === 'maelard' || p.series === 'Maelard')).length;
+  // Duplicate product
+  const handleDuplicate = (product: SupabaseProduct) => {
+    setDuplicateProduct(product);
+  };
+
+  const confirmDuplicate = async () => {
+    if (!duplicateProduct) return;
+
+    // Create copy with new ID
+    const newId = `${duplicateProduct.series}-${crypto.randomUUID().slice(0, 8)}`;
+    const newProduct: Product = {
+      ...duplicateProduct,
+      id: newId,
+      model: `${duplicateProduct.model} (Copy)`,
+      name: duplicateProduct.name ? `${duplicateProduct.name} (Copy)` : `${duplicateProduct.model} (Copy)`,
+    };
+
+    const success = await create(newProduct);
+    if (success) {
+      toast.success(`Product duplicated as "${newProduct.model}"`);
+      setIsFormOpen(false);
+      setDuplicateProduct(null);
+    } else {
+      toast.error('Failed to duplicate product');
+    }
+  };
+
+  // Quick publish/unpublish
+  const handlePublish = async (id: string) => {
+    const success = await publish(id);
+    if (success) {
+      toast.success('Product published');
+    } else {
+      toast.error('Failed to publish product');
+    }
+  };
+
+  const handleUnpublish = async (id: string) => {
+    const success = await unpublish(id);
+    if (success) {
+      toast.success('Product unpublished (moved to drafts)');
+    } else {
+      toast.error('Failed to unpublish product');
+    }
+  };
+
+  // Bulk actions
+  const handleBulkPublish = async (ids: string[]) => {
+    const results = await Promise.all(ids.map(id => publish(id)));
+    const successCount = results.filter(r => r).length;
+    toast.success(`${successCount} products published`);
+  };
+
+  const handleBulkUnpublish = async (ids: string[]) => {
+    const results = await Promise.all(ids.map(id => unpublish(id)));
+    const successCount = results.filter(r => r).length;
+    toast.success(`${successCount} products unpublished`);
+  };
+
+  const handleBulkMoveToTrash = async (ids: string[]) => {
+    const results = await Promise.all(ids.map(id => remove(id)));
+    const successCount = results.filter(r => r).length;
+    toast.success(`${successCount} products moved to trash`);
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    // Hard delete - actually remove from database
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .in('id', ids);
+
+    if (!error) {
+      toast.success(`${ids.length} products permanently deleted`);
+    } else {
+      toast.error('Failed to delete products');
+    }
+  };
+
+  const haemngCount = products.filter(p => p.category === 'motor' && p.series === 'haemng').length;
+  const maelardCount = products.filter(p => p.category === 'motor' && p.series === 'maelard').length;
   const escsCount = products.filter(p => p.category === 'esc').length;
   const fcsCount = products.filter(p => p.category === 'fc').length;
   const ipsCount = products.filter(p => p.category === 'ips').length;
@@ -125,10 +221,16 @@ export default function ProductsPage() {
           <h1 className="page-title">Products</h1>
           <p className="page-subtitle">Manage motor catalogue and components</p>
         </div>
-        <button className="btn btn-primary" onClick={handleAddNew}>
-          <PlusIcon />
-          Add Product
-        </button>
+        <div className="header-actions">
+          <button className="btn btn-secondary" onClick={() => window.location.href = '/drafts'}>
+            <DraftIcon />
+            Drafts
+          </button>
+          <button className="btn btn-primary" onClick={handleAddNew}>
+            <PlusIcon />
+            Add Product
+          </button>
+        </div>
       </div>
 
       <ProductFilters
@@ -160,6 +262,13 @@ export default function ProductsPage() {
             if (product) setDeleteConfirmProduct(product);
           }}
           onView={handleView}
+          onDuplicate={handleDuplicate}
+          onPublish={handlePublish}
+          onUnpublish={handleUnpublish}
+          onBulkDelete={handleBulkDelete}
+          onBulkPublish={handleBulkPublish}
+          onBulkUnpublish={handleBulkUnpublish}
+          onBulkMoveToTrash={handleBulkMoveToTrash}
         />
       )}
 
@@ -174,20 +283,32 @@ export default function ProductsPage() {
         <ProductDetailModal
           product={viewingProduct}
           onClose={() => setViewingProduct(null)}
-          onEdit={handleEdit}
+          onEdit={() => handleEdit(viewingProduct)}
         />
       )}
 
+      {/* Delete confirmation */}
       <ConfirmDialog
         isOpen={!!deleteConfirmProduct}
-        title="Delete Product"
-        message={`Are you sure you want to delete "${deleteConfirmProduct?.model}"? This action cannot be undone.`}
-        confirmText="Delete"
+        title="Move to Trash"
+        message={`Are you sure you want to move "${deleteConfirmProduct?.name || deleteConfirmProduct?.model}" to trash? It can be restored from the Trash page.`}
+        confirmText="Move to Trash"
         cancelText="Cancel"
         confirmType="danger"
-        requireTyping={deleteConfirmProduct?.id}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmProduct(null)}
+      />
+
+      {/* Duplicate confirmation */}
+      <ConfirmDialog
+        isOpen={!!duplicateProduct}
+        title="Duplicate Product"
+        message={`Create a copy of "${duplicateProduct?.name || duplicateProduct?.model}"? The duplicate will be saved as a draft.`}
+        confirmText="Duplicate"
+        cancelText="Cancel"
+        confirmType="primary"
+        onConfirm={confirmDuplicate}
+        onCancel={() => setDuplicateProduct(null)}
       />
 
       <style jsx>{`
@@ -218,34 +339,45 @@ export default function ProductsPage() {
           color: var(--color-ink-mid);
         }
 
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(14, 14, 15, 0.6);
+        .header-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .btn {
           display: flex;
           align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 20px;
-        }
-
-        .delete-modal {
-          max-width: 420px;
-        }
-
-        .modal-title {
-          font-family: var(--font-display);
-          font-size: 18px;
-          letter-spacing: 0.04em;
+          gap: 8px;
+          padding: 10px 18px;
+          font-family: var(--font-mono);
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
           text-transform: uppercase;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 150ms ease;
+          border: 1px solid transparent;
+        }
+
+        .btn-primary {
+          background: var(--color-gold);
+          border-color: var(--color-gold);
           color: var(--color-ink);
         }
 
-        .modal-body p {
-          font-family: var(--font-body);
-          font-size: 15px;
-          color: var(--color-ink-mid);
-          line-height: 1.6;
+        .btn-primary:hover {
+          filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+          background: var(--color-white-pure);
+          border-color: var(--color-white-border);
+          color: var(--color-ink);
+        }
+
+        .btn-secondary:hover {
+          background: var(--color-white-grey);
         }
       `}</style>
     </div>
@@ -256,6 +388,15 @@ function PlusIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M9 3v12M3 9h12" />
+    </svg>
+  );
+}
+
+function DraftIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M13 3H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2z" />
+      <path d="M11 6H7M11 9H7" />
     </svg>
   );
 }

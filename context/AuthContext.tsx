@@ -9,6 +9,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  isSuperAdmin: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,11 +19,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
+  // Check for existing session on mount and refresh profile data
   useEffect(() => {
-    const session = auth.getSession();
-    setUser(session);
-    setIsLoading(false);
+    const initSession = async () => {
+      const session = auth.getSession();
+      if (session) {
+        // Refresh session to get latest profile data (is_super_admin, etc.)
+        const refreshed = await auth.refreshSession();
+        setUser(refreshed);
+      }
+      setIsLoading(false);
+    };
+    initSession();
   }, []);
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
@@ -39,12 +48,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const refreshed = await auth.refreshSession();
+    if (refreshed) {
+      setUser(refreshed);
+    }
+  }, []);
+
   const value: AuthContextType = {
     user,
     isLoading,
     login,
     logout,
     isAuthenticated: !!user,
+    isSuperAdmin: user?.is_super_admin ?? false,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

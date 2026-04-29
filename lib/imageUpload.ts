@@ -200,7 +200,7 @@ export async function uploadProductIcon(
   // Upload to storage
   const ext = file.name.split('.').pop() || 'png';
   const path = `icons/${productId}.${ext}`;
-  const result = await uploadToStorage(file, 'product-assets', path);
+  const result = await uploadToStorage(file, 'product-icons', path);
 
   if (!result.success) {
     return {

@@ -9,11 +9,11 @@ export function useProductActions() {
   const { create, update, remove } = useProducts();
   const { success, error } = useToast();
 
-  const createWithToast = async (product: Product): Promise<boolean> => {
+  const createWithToast = async (product: Product, isDraft = false): Promise<boolean> => {
     try {
-      const result = await create(product);
+      const result = await create(product, isDraft);
       if (result) {
-        success('Product created successfully');
+        success(isDraft ? 'Draft saved successfully' : 'Product created successfully');
         return true;
       } else {
         error('Failed to create product - ID may already exist');

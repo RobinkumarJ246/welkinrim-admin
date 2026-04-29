@@ -1,146 +1,223 @@
 /**
- * Product types - aligned with client project (Well/src/lib/products.ts)
+ * Product types - ALIGNED with client project (WelkinrimTech/src/data/products.ts)
+ * This ensures data saved by admin console is compatible with client website
  */
 
-export type ProductCategory = 'motor' | 'esc' | 'fc' | 'ips';
-export type ProductSeries = 'Haemng' | 'Maelard' | 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips' | 'ESC' | 'Flight Controller' | 'IPS';
-
-export interface PerformancePoint {
-  throttle: number;
-  voltage: number;
-  power: number;
-  thrust: number;
-  rpm: number;
-  efficiency: number;
-  current: number;
-}
-
-export interface MotorProduct {
-  id: string;
-  series: 'Haemng' | 'Maelard' | 'haemng' | 'maelard';
-  model: string;
-  category: 'motor';
-  kv: number;
+// Performance data row format
+export type PerfRow = {
+  throttle: string;
   voltage: string;
-  peakCurrent: number;
-  recommendedThrust: string;
-  peakThrust: string;
-  propeller: string;
-  diameter: number;
-  height: number;
-  weight: number;
-  escCompat: string;
-  powerSource: string;
-  performance: PerformancePoint[];
-  thrustUnit: string;
-}
+  power: string;
+  thrust: string;
+  current: string;
+  speed?: string;
+  efficiency?: string;
+};
 
-export interface ESCProduct {
+// Spec item format (used in keySpecs and allSpecs)
+export type SpecItem = {
+  label: string;
+  value: string;
+};
+
+// Product category types
+export type ProductSeries = 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips' | 'other';
+export type ProductCategory = 'motor' | 'esc' | 'fc' | 'ips' | 'other';
+
+// Unified Product type - matches client format exactly
+export interface Product {
   id: string;
-  series: 'ESC' | 'esc';
+  series: ProductSeries;
+  seriesLabel: string;
   model: string;
-  category: 'esc';
-  continuousCurrent: number;
-  currentLimit: number;
-  recommendedBattery: string;
-  bec: string;
-  ipRating: string;
-  weight: number;
-  size: string;
-  powerLine: string;
-  motorLine: string;
-  throttlePulse: string;
-  signalFreq: string;
-  signalVoltage: string;
-  opTempRange: string;
-  speedSignalOutput: boolean;
-  errorSignalOutput: boolean;
-  protections: string[];
+  name: string;
+  tag: string;
+  application: string;
+  keySpecs: SpecItem[];      // 3 key specs displayed on product cards
+  allSpecs: SpecItem[];      // Full specs displayed on detail page
+  perf?: PerfRow[];          // Performance data (throttle curves)
+  thumbnailUrl?: string | null;
+  iconUrl?: string | null;
+  wireframeUrl?: string | null;
+  thumbnailBgColor?: string | null;
 }
 
-export interface FCProduct {
+// Supabase row type (database storage format)
+export interface SupabaseProductRow {
   id: string;
-  series: 'Flight Controller';
+  category: ProductCategory;
+  series: string;
   model: string;
-  category: 'fc';
-  opVoltage: string;
-  opTemp: string;
-  size: string;
-  weight: number;
-  pwmOutput: string;
-  rcIn: string;
-  usb: string;
-  powerMonitor: string;
-  powerInput: string;
-  sensor: string;
-  compass: boolean;
-  vibrationIsolation: boolean;
-  uart: number;
-  i2c: number;
-  can: number;
-  adc: string;
-  spi: number;
-  software: string;
-  outputConnector: string;
-  communication: string;
+  data: Product;             // Full product data stored as JSONB
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  is_published: boolean;
 }
 
-export interface IPSProduct {
-  id: string;
-  series: 'IPS';
-  model: string;
-  category: 'ips';
-  motorModel: string;
-  escModel: string;
-  kv: number;
-  voltage: string;
-  peakCurrent: number;
-  recommendedThrust: string;
-  peakThrust: string;
-  propeller: string;
-  diameter: number;
-  height: number;
-  depth: number;
-  weight: number;
-}
-
-export type Product = MotorProduct | ESCProduct | FCProduct | IPSProduct;
-
-// Extended product type from Supabase with metadata and nested data
+// Extended product type for admin use (includes metadata)
 export interface SupabaseProduct extends Product {
-  data?: Product;
+  category?: ProductCategory;
   created_at?: string;
   updated_at?: string;
+  is_published?: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
-export function isMotor(product: Product): product is MotorProduct {
-  return product.category === 'motor';
+// Series configuration type
+export interface SeriesConfig {
+  id: string;
+  label: string;
+  useSvgLogo: boolean;
+  logoSrc?: string;
+  accent: string;
+  textOnAccent: string;
+  iconUrl?: string;
 }
 
-export function isESC(product: Product): product is ESCProduct {
-  return product.category === 'esc';
+// Helper functions
+export function isMotor(product: Product): boolean {
+  return product.series === 'haemng' || product.series === 'maelard';
 }
 
-export function isFC(product: Product): product is FCProduct {
-  return product.category === 'fc';
+export function isESC(product: Product): boolean {
+  return product.series === 'esc';
 }
 
-export function isIPS(product: Product): product is IPSProduct {
-  return product.category === 'ips';
+export function isFC(product: Product): boolean {
+  return product.series === 'fc';
 }
 
-export function getDomainForProduct(product: Product): string {
+export function isIPS(product: Product): boolean {
+  return product.series === 'ips';
+}
+
+// Get series label from series id
+export function getSeriesLabel(series: ProductSeries): string {
+  const labels: Record<ProductSeries, string> = {
+    haemng: 'Haemng Series',
+    maelard: 'Maelard Series',
+    esc: 'Electronic Speed Controllers',
+    fc: 'Flight Controller',
+    ips: 'Integrated Power Systems',
+    other: 'Other Systems & Custom Solutions',
+  };
+  return labels[series] || 'Unknown Series';
+}
+
+// Get default tag from series
+export function getDefaultTag(series: ProductSeries): string {
+  const tags: Record<ProductSeries, string> = {
+    haemng: 'HAEMNG',
+    maelard: 'MAELARD',
+    esc: 'ESC',
+    fc: 'FC',
+    ips: 'IPS',
+    other: 'CUSTOM',
+  };
+  return tags[series] || 'PRODUCT';
+}
+
+// Create empty product with defaults
+export function createEmptyProduct(series: ProductSeries): Product {
+  return {
+    id: '',
+    series,
+    seriesLabel: getSeriesLabel(series),
+    model: '',
+    name: '',
+    tag: getDefaultTag(series),
+    application: 'UAV / eVTOL',
+    keySpecs: [
+      { label: 'KV Rating', value: '' },
+      { label: 'Peak Thrust', value: '' },
+      { label: 'Voltage', value: '' },
+    ],
+    allSpecs: [],
+    perf: [],
+    thumbnailUrl: null,
+    iconUrl: null,
+    wireframeUrl: null,
+    thumbnailBgColor: '#111111',
+  };
+}
+
+// Validate product has required fields
+export function validateProduct(product: Partial<Product>): string[] {
+  const errors: string[] = [];
+
+  if (!product.model?.trim()) {
+    errors.push('Model name is required');
+  }
+
+  if (!product.id?.trim()) {
+    errors.push('Product ID is required');
+  }
+
+  if (!product.series) {
+    errors.push('Series is required');
+  }
+
+  // Motor products need key specs
+  if (isMotor(product as Product)) {
+    const kvSpec = product.keySpecs?.find(s => s.label.toLowerCase().includes('kv'));
+    if (!kvSpec?.value) {
+      errors.push('KV Rating is required for motor products');
+    }
+  }
+
+  return errors;
+}
+
+// Extract KV value from specs
+export function getKV(product: Product): string {
+  const kvSpec = product.keySpecs?.find(s =>
+    s.label.toLowerCase().includes('kv')
+  );
+  return kvSpec?.value || '—';
+}
+
+// Extract voltage from specs
+export function getVoltage(product: Product): string {
+  const voltageSpec = product.keySpecs?.find(s =>
+    s.label.toLowerCase().includes('voltage') || s.label.toLowerCase().includes('battery')
+  );
+  return voltageSpec?.value || '—';
+}
+
+// Extract peak thrust from specs
+export function getPeakThrust(product: Product): string {
+  const thrustSpec = product.keySpecs?.find(s =>
+    s.label.toLowerCase().includes('thrust')
+  );
+  return thrustSpec?.value || '—';
+}
+
+// Extract weight from specs
+export function getWeight(product: Product): string {
+  const weightSpec = product.allSpecs?.find(s =>
+    s.label.toLowerCase().includes('weight')
+  );
+  if (weightSpec?.value) {
+    // Extract number from "86 g" format
+    const match = weightSpec.value.match(/(\d+)/);
+    return match ? match[1] : weightSpec.value;
+  }
+  return '—';
+}
+
+// Get domain/category badge for product
+export function getProductDomain(product: Product): string {
   if (isMotor(product) || isIPS(product)) {
-    // Infer domain from KV rating (rough heuristic)
-    if (product.kv >= 500) return 'air';
-    if (product.kv >= 200) return 'land';
-    if (product.kv >= 100) return 'water';
-    return 'robotics';
+    return 'air';
   }
   if (isESC(product)) {
-    if (product.continuousCurrent >= 100) return 'land';
-    if (product.continuousCurrent >= 50) return 'air';
-    return 'water';
+    return 'air';
+  }
+  if (isFC(product)) {
+    return 'air';
   }
   return 'robotics';
 }

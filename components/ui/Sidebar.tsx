@@ -23,6 +23,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: '/', label: 'Dashboard', icon: DashboardIcon },
     { href: '/products', label: 'Products', icon: ProductsIcon },
     { href: '/series', label: 'Series', icon: SeriesIcon },
+    { href: '/storage', label: 'Storage', icon: StorageIcon },
+    { href: '/drafts', label: 'Drafts', icon: DraftsIcon },
+    { href: '/trash', label: 'Trash', icon: TrashIcon },
     { href: '/settings', label: 'Settings', icon: SettingsIcon },
   ];
 
@@ -103,6 +106,37 @@ function SeriesIcon() {
       <circle cx="7" cy="6" r="1.5" fill="currentColor" />
       <circle cx="7" cy="10" r="1.5" fill="currentColor" />
       <circle cx="7" cy="14" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function DraftsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M14 2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2z" />
+      <path d="M12 6H8M12 10H8M12 14H8" />
+      <circle cx="6" cy="6" r="1" fill="currentColor" />
+      <circle cx="6" cy="10" r="1" fill="currentColor" />
+      <circle cx="6" cy="14" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M4 5h12M8 5V4h4v1M6 5v11a2 2 0 002 2h4a2 2 0 002-2V5" />
+      <path d="M9 8v6M11 8v6" />
+    </svg>
+  );
+}
+
+function StorageIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2" y="2" width="16" height="6" rx="1" />
+      <rect x="2" y="9" width="16" height="6" rx="1" />
+      <path d="M5 5h2M5 12h2" strokeLinecap="round" />
     </svg>
   );
 }

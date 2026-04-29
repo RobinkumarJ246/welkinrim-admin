@@ -13,6 +13,8 @@ export interface Series {
   icon_url?: string;
   created_at?: string;
   updated_at?: string;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 export function useSeries() {
@@ -127,6 +129,35 @@ export function useSeries() {
     return true;
   }, [refresh]);
 
+  const restore = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('series')
+      .update({ is_deleted: false, deleted_at: null })
+      .eq('id', id);
+    if (error) {
+      console.error('Error restoring series', error);
+      return false;
+    }
+
+    await refresh();
+    return true;
+  }, [refresh]);
+
+  const getDeleted = useCallback(async (): Promise<Series[]> => {
+    const { data, error } = await supabase
+      .from('series')
+      .select('*')
+      .eq('is_deleted', true)
+      .order('deleted_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading deleted series', error);
+      return [];
+    }
+
+    return (data as Series[]) || [];
+  }, []);
+
   return {
     series,
     loading,
@@ -135,6 +166,8 @@ export function useSeries() {
     create,
     update,
     remove,
+    restore,
+    getDeleted,
     refresh,
   };
 }
