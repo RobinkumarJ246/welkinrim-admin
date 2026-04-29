@@ -30,6 +30,8 @@ interface AdminUser {
   is_super_admin: boolean;
   last_login: string | null;
   created_at: string;
+  status?: 'pending' | 'active' | 'suspended' | 'expired';
+  invite_expires_at?: string | null;
 }
 
 export default function SettingsPage() {
@@ -223,6 +225,26 @@ export default function SettingsPage() {
       loadAdminUsers();
     } else {
       setProfileError('Failed to remove admin: ' + data.error);
+    }
+  };
+
+  const handleResendInvite = async (admin: AdminUser) => {
+    const response = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'resendInvite',
+        userId: admin.id,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setProfileSuccess(data.message);
+      loadAdminUsers();
+    } else {
+      setProfileError('Failed to resend invite: ' + data.error);
     }
   };
 
@@ -514,10 +536,25 @@ export default function SettingsPage() {
                           {admin.is_super_admin && (
                             <span className="badge badge-super-admin small">SUPER ADMIN</span>
                           )}
+                          {admin.status === 'pending' && (
+                            <span className="badge badge-pending small">PENDING</span>
+                          )}
+                          {admin.status === 'expired' && (
+                            <span className="badge badge-expired small">EXPIRED</span>
+                          )}
+                          {admin.status === 'active' && !admin.is_super_admin && (
+                            <span className="badge badge-active small">ACTIVE</span>
+                          )}
                           <span className="admin-date">
-                            Joined: {new Date(admin.created_at).toLocaleDateString()}
+                            {admin.status === 'pending' || admin.status === 'expired' ? 'Invited: ' : 'Joined: '}
+                            {new Date(admin.created_at).toLocaleDateString()}
                           </span>
-                          {admin.last_login && (
+                          {admin.status === 'pending' && admin.invite_expires_at && (
+                            <span className="admin-date warning">
+                              Expires: {new Date(admin.invite_expires_at).toLocaleDateString()}
+                            </span>
+                          )}
+                          {admin.last_login && admin.status === 'active' && (
                             <span className="admin-date">
                               Last login: {new Date(admin.last_login).toLocaleDateString()}
                             </span>
@@ -528,6 +565,16 @@ export default function SettingsPage() {
                     <div className="admin-actions">
                       {!admin.is_super_admin && admin.id !== user?.id && (
                         <>
+                          {(admin.status === 'pending' || admin.status === 'expired') && (
+                            <button
+                              className="btn btn-secondary small"
+                              onClick={() => handleResendInvite(admin)}
+                              title="Resend invitation"
+                            >
+                              <ResendIcon />
+                              Resend
+                            </button>
+                          )}
                           <button
                             className="btn btn-outline small"
                             onClick={() => {
@@ -1074,6 +1121,27 @@ export default function SettingsPage() {
           border: 1px solid var(--color-white-border);
         }
 
+        .badge-pending {
+          background: #fef3c7;
+          color: #92400e;
+          border: 1px solid #fbbf24;
+        }
+
+        .badge-expired {
+          background: #fef2f2;
+          color: #991b1b;
+          border: 1px solid #ef4444;
+        }
+
+        .badge-active {
+          background: #d1fae5;
+          color: #065f46;
+        }
+
+        .admin-date.warning {
+          color: #b45309;
+        }
+
         .badge.small {
           font-size: 10px;
           padding: 4px 8px;
@@ -1505,6 +1573,15 @@ function RemoveIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M3 3l8 8M11 3l-8 8" />
+    </svg>
+  );
+}
+
+function ResendIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 7a5 5 0 1 1 5 5" />
+      <path d="M2 7V4M2 7H5" />
     </svg>
   );
 }
