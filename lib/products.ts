@@ -99,7 +99,7 @@ export function getSeriesLabel(series: ProductSeries): string {
   const labels: Record<ProductSeries, string> = {
     haemng: 'Haemng Series',
     maelard: 'Maelard Series',
-    esc: 'Electronic Speed Controllers',
+    esc: 'ESCs',
     fc: 'Flight Controller',
     ips: 'Integrated Power Systems',
     other: 'Other Systems & Custom Solutions',
