@@ -585,6 +585,58 @@ body {
   color: var(--color-ink);
 }
 
+.sidebar-link.has-badge {
+  position: relative;
+}
+
+.sidebar-badge {
+  position: absolute;
+  right: 12px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--color-gold);
+  color: var(--color-ink);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+.sidebar-badge::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  background: var(--color-gold);
+  opacity: 0;
+  animation: badge-glow 2s ease-in-out infinite;
+}
+
+.sidebar-link.active .sidebar-badge {
+  background-color: var(--color-ink);
+  color: var(--color-gold);
+  animation: none;
+}
+
+.sidebar-link.active .sidebar-badge::before {
+  animation: none;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes badge-glow {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.2); }
+}
+
 /* Header */
 .header {
   position: fixed;

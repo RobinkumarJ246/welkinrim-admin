@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useEnquiries } from '@/hooks/useEnquiries';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -12,6 +13,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { stats } = useEnquiries();
 
   const handleLogout = () => {
     // Clear the session cookie
@@ -21,6 +23,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: DashboardIcon },
+    { href: '/enquiries', label: 'Enquiries', icon: EnquiriesIcon, badge: stats.new > 0 ? stats.new : undefined },
     { href: '/products', label: 'Products', icon: ProductsIcon },
     { href: '/series', label: 'Series', icon: SeriesIcon },
     { href: '/storage', label: 'Storage', icon: StorageIcon },
@@ -58,11 +61,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`sidebar-link ${active ? 'active' : ''}`}
+              className={`sidebar-link ${active ? 'active' : ''} ${item.badge ? 'has-badge' : ''}`}
               onClick={onClose}
             >
               <Icon />
               <span>{item.label}</span>
+              {item.badge && (
+                <span className="sidebar-badge">{item.badge}</span>
+              )}
             </Link>
           );
         })}
@@ -155,6 +161,16 @@ function LogoutIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M11 14l4-4-4-4M15 10H7" />
       <path d="M5 4v12" />
+    </svg>
+  );
+}
+
+function EnquiriesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 4h14a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2z" />
+      <path d="M5 8h10M5 11h7" />
+      <circle cx="15" cy="11" r="2" fill="#E8A800" stroke="none" />
     </svg>
   );
 }

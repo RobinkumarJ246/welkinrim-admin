@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useProducts } from '@/hooks/useProducts';
 import { useSeries } from '@/hooks/useSeries';
+import { useEnquiries } from '@/hooks/useEnquiries';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const { user, isSuperAdmin } = useAuth();
   const { products, refresh: refreshProducts } = useProducts();
   const { series, refresh: refreshSeries } = useSeries();
+  const { stats: enquiryStats, refresh: refreshEnquiries } = useEnquiries();
   const [isLoaded, setIsLoaded] = useState(false);
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
   const [storageStats, setStorageStats] = useState<StorageStats[]>([]);
@@ -37,10 +39,11 @@ export default function DashboardPage() {
   useEffect(() => {
     refreshProducts();
     refreshSeries();
+    refreshEnquiries();
     loadRecentActivity();
     loadStorageStats();
     setIsLoaded(true);
-  }, [refreshProducts, refreshSeries]);
+  }, [refreshProducts, refreshSeries, refreshEnquiries]);
 
   const loadRecentActivity = async () => {
     setLoadingActivity(true);
@@ -120,6 +123,7 @@ export default function DashboardPage() {
 
   // Quick actions
   const quickActions = [
+    { href: '/enquiries', label: 'Enquiries', icon: EnquiriesIcon, description: `${enquiryStats.new} new`, highlight: enquiryStats.new > 0 },
     { href: '/products', label: 'Products', icon: ProductsIcon, description: `${stats.totalProducts} items` },
     { href: '/series', label: 'Series', icon: SeriesIcon, description: `${stats.totalSeries} series` },
     { href: '/drafts', label: 'Drafts', icon: DraftsIcon, description: `${stats.draftProducts} drafts`, highlight: stats.draftProducts > 0 },
@@ -177,6 +181,20 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <div className={`stat-card ${enquiryStats.new > 0 ? 'highlight-stat' : ''}`}>
+          <div className="stat-header">
+            <span className="stat-label">New Enquiries</span>
+            <Link href="/enquiries" className="stat-link">View All →</Link>
+          </div>
+          <div className="stat-body">
+            <span className="stat-value">{enquiryStats.new}</span>
+            <div className="stat-breakdown">
+              {enquiryStats.new > 0 && <span className="breakdown-item highlight">{enquiryStats.new} unread</span>}
+              {enquiryStats.responded > 0 && <span className="breakdown-item">{enquiryStats.responded} responded</span>}
+            </div>
+          </div>
+        </div>
+
         <div className="stat-card">
           <div className="stat-header">
             <span className="stat-label">Product Series</span>
@@ -224,6 +242,64 @@ export default function DashboardPage() {
             </div>
             <div className="stat-breakdown">
               <span className="breakdown-item">{stats.publishedProducts} of {stats.totalProducts} products</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Stats Row */}
+      <div className="stats-secondary">
+        <div className="stat-card compact">
+          <div className="stat-header">
+            <span className="stat-label">Total Enquiries</span>
+            <Link href="/enquiries" className="stat-link">View →</Link>
+          </div>
+          <div className="stat-body">
+            <span className="stat-value">{enquiryStats.total}</span>
+            <div className="stat-breakdown">
+              <span className="breakdown-item">{enquiryStats.resolved} resolved</span>
+              {enquiryStats.spam > 0 && <span className="breakdown-item">{enquiryStats.spam} spam</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card compact">
+          <div className="stat-header">
+            <span className="stat-label">Motors</span>
+            <Link href="/products#haemng" className="stat-link">View →</Link>
+          </div>
+          <div className="stat-body">
+            <span className="stat-value">{stats.motors}</span>
+            <div className="stat-breakdown">
+              <span className="breakdown-item">{stats.haemngMotors} Haemng</span>
+              <span className="breakdown-item">{stats.maelardMotors} Maelard</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card compact">
+          <div className="stat-header">
+            <span className="stat-label">Drafts</span>
+            <Link href="/drafts" className="stat-link">Edit →</Link>
+          </div>
+          <div className="stat-body">
+            <span className="stat-value">{stats.draftProducts}</span>
+            <div className="stat-breakdown">
+              <span className="breakdown-item">Unpublished products</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card compact">
+          <div className="stat-header">
+            <span className="stat-label">ESCs & Controllers</span>
+            <Link href="/products#esc" className="stat-link">View →</Link>
+          </div>
+          <div className="stat-body">
+            <span className="stat-value">{stats.escs + stats.fcs}</span>
+            <div className="stat-breakdown">
+              <span className="breakdown-item">{stats.escs} ESCs</span>
+              <span className="breakdown-item">{stats.fcs} Controllers</span>
             </div>
           </div>
         </div>
@@ -418,6 +494,13 @@ export default function DashboardPage() {
           margin-bottom: 24px;
         }
 
+        .stats-secondary {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
         .stat-card {
           background: var(--color-white-pure);
           border: 1px solid var(--color-white-border);
@@ -428,6 +511,24 @@ export default function DashboardPage() {
         .main-stat {
           border-color: var(--color-gold);
           border-width: 2px;
+        }
+
+        .highlight-stat {
+          border-color: var(--color-gold);
+          border-width: 2px;
+          background: rgba(232, 168, 0, 0.03);
+        }
+
+        .stat-card.compact {
+          padding: 16px;
+        }
+
+        .stat-card.compact .stat-value {
+          font-size: 24px;
+        }
+
+        .stat-card.compact .stat-header {
+          margin-bottom: 12px;
         }
 
         .stat-header {
@@ -516,6 +617,12 @@ export default function DashboardPage() {
         .breakdown-item.trash {
           background: #fef2f2;
           color: #991b1b;
+        }
+
+        .breakdown-item.highlight {
+          background: var(--color-gold);
+          color: var(--color-ink);
+          font-weight: 700;
         }
 
         .stat-loading {
@@ -846,6 +953,10 @@ export default function DashboardPage() {
             grid-template-columns: repeat(2, 1fr);
           }
 
+          .stats-secondary {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
           .dashboard-columns {
             grid-template-columns: 1fr;
           }
@@ -853,6 +964,10 @@ export default function DashboardPage() {
 
         @media (max-width: 600px) {
           .stats-main {
+            grid-template-columns: 1fr;
+          }
+
+          .stats-secondary {
             grid-template-columns: 1fr;
           }
 
@@ -926,6 +1041,16 @@ function InviteIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M10 2v16M2 10h16" />
       <circle cx="10" cy="10" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EnquiriesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 4h14a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2z" />
+      <path d="M5 8h10M5 11h7" />
+      <circle cx="15" cy="11" r="2" fill="#E8A800" stroke="none" />
     </svg>
   );
 }
