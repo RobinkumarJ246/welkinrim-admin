@@ -21,7 +21,7 @@ export type SpecItem = {
 };
 
 // Product category types
-export type ProductSeries = 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips' | 'other';
+export type ProductSeries = 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips' | 'stroke' | 'vagans' | 'sciatic' | 'other';
 export type ProductCategory = 'motor' | 'esc' | 'fc' | 'ips' | 'other';
 
 // Unified Product type - matches client format exactly
@@ -102,6 +102,9 @@ export function getSeriesLabel(series: ProductSeries): string {
     esc: 'ESCs',
     fc: 'Flight Controller',
     ips: 'Integrated Power Systems',
+    stroke: 'Stroke Series',
+    vagans: 'Vagans Series',
+    sciatic: 'Sciatic Series',
     other: 'Other Systems & Custom Solutions',
   };
   return labels[series] || 'Unknown Series';
@@ -115,6 +118,9 @@ export function getDefaultTag(series: ProductSeries): string {
     esc: 'ESC',
     fc: 'FC',
     ips: 'IPS',
+    stroke: 'STROKE',
+    vagans: 'VAGANS',
+    sciatic: 'SCIATIC',
     other: 'CUSTOM',
   };
   return tags[series] || 'PRODUCT';

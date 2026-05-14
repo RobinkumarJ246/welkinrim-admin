@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useProductActions } from '@/hooks/useProductActions';
 import { useSeries } from '@/hooks/useSeries';
-import { uploadProductThumbnail, uploadProductIcon } from '@/lib/imageUpload';
+import { uploadProductThumbnail, uploadProductIcon, uploadProductWireframe } from '@/lib/imageUpload';
 import type { Product, PerfRow, SpecItem, ProductSeries } from '@/lib/products';
 import { createEmptyProduct, getSeriesLabel, getDefaultTag } from '@/lib/products';
 
@@ -61,13 +61,14 @@ export function ProductFormModal({ product, onClose }: ProductFormModalProps) {
 
   // Series change - update related fields
   const handleSeriesChange = useCallback((series: ProductSeries) => {
+    const selectedSeries = seriesList.find(s => s.id === series);
     setFormData(prev => ({
       ...prev,
       series,
-      seriesLabel: getSeriesLabel(series),
+      seriesLabel: selectedSeries?.label || getSeriesLabel(series),
       tag: getDefaultTag(series),
     }));
-  }, []);
+  }, [seriesList]);
 
   // Handle thumbnail file selection
   const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -253,7 +254,7 @@ export function ProductFormModal({ product, onClose }: ProductFormModalProps) {
 
       if (wireframeFile) {
         advance('Uploading wireframe…');
-        const result = await uploadProductThumbnail(wireframeFile, productId); // Use same bucket for wireframe
+        const result = await uploadProductWireframe(wireframeFile, productId);
         if (!result.success) {
           setErrors({ wireframe: result.error || 'Failed to upload wireframe' });
           return;

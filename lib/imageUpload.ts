@@ -216,8 +216,47 @@ export async function uploadProductIcon(
 }
 
 /**
- * Validate and upload a series icon
+ * Validate and upload a product wireframe (technical drawing)
+ * Wireframes have relaxed validation since they can be various aspect ratios
  */
+export async function uploadProductWireframe(
+  file: File,
+  productId: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  // Validate wireframe - minimum 400x300, any aspect ratio, 2MB max
+  // Wireframes are technical drawings that can be wide (ESC), tall (IPS), or square
+  const validation = await validateImage(file, {
+    minWidth: 400,
+    minHeight: 300,
+    minAspectRatio: 0.3,  // Allow tall images (like IPS combos)
+    maxAspectRatio: 5.0,  // Allow wide images (like ESCs)
+    maxSizeBytes: 2 * 1024 * 1024, // 2MB for detailed technical drawings
+  });
+
+  if (!validation.valid) {
+    return {
+      success: false,
+      error: validation.error,
+    };
+  }
+
+  // Upload to storage in wireframes folder
+  const ext = file.name.split('.').pop() || 'png';
+  const path = `wireframes/${productId}.${ext}`;
+  const result = await uploadToStorage(file, 'product-images', path);
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+    };
+  }
+
+  return {
+    success: true,
+    url: result.publicUrl,
+  };
+}
 export async function uploadSeriesIcon(
   file: File,
   seriesId: string

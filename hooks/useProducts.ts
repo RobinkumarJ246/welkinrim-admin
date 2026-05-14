@@ -252,7 +252,7 @@ export function useProducts() {
 
 // Helper to determine category from series
 function getCategoryFromSeries(series: string): string {
-  if (series === 'haemng' || series === 'maelard') return 'motor';
+  if (series === 'haemng' || series === 'maelard' || series === 'stroke' || series === 'vagans' || series === 'sciatic') return 'motor';
   if (series === 'esc') return 'esc';
   if (series === 'fc') return 'fc';
   if (series === 'ips') return 'ips';

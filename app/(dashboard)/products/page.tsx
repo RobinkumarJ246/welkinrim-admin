@@ -13,7 +13,7 @@ import type { Product, SupabaseProduct, ProductSeries } from '@/lib/products';
 import { createEmptyProduct } from '@/lib/products';
 import { useToast } from '@/context/ToastContext';
 
-type CategoryFilter = 'all' | 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips';
+type CategoryFilter = 'all' | 'haemng' | 'maelard' | 'stroke' | 'vagans' | 'sciatic' | 'esc' | 'fc' | 'ips' | 'other';
 type SortKey = 'model' | 'series' | 'category' | 'weight';
 type SortDir = 'asc' | 'desc';
 
@@ -40,12 +40,14 @@ export default function ProductsPage() {
 
     // Category filter
     if (activeCategory !== 'all') {
+      // Motors: filter by category and series
       if (activeCategory === 'haemng') {
-        result = result.filter(p => p.category === 'motor' && p.series === 'haemng');
+        result = result.filter(p => p.series === 'haemng');
       } else if (activeCategory === 'maelard') {
-        result = result.filter(p => p.category === 'motor' && p.series === 'maelard');
+        result = result.filter(p => p.series === 'maelard');
       } else {
-        result = result.filter(p => p.category === activeCategory);
+        // All other series: filter by series
+        result = result.filter(p => p.series === activeCategory);
       }
     }
 
@@ -210,9 +212,13 @@ export default function ProductsPage() {
 
   const haemngCount = products.filter(p => p.category === 'motor' && p.series === 'haemng').length;
   const maelardCount = products.filter(p => p.category === 'motor' && p.series === 'maelard').length;
-  const escsCount = products.filter(p => p.category === 'esc').length;
-  const fcsCount = products.filter(p => p.category === 'fc').length;
-  const ipsCount = products.filter(p => p.category === 'ips').length;
+  const strokeCount = products.filter(p => p.series === 'stroke').length;
+  const vagansCount = products.filter(p => p.series === 'vagans').length;
+  const sciaticCount = products.filter(p => p.series === 'sciatic').length;
+  const escsCount = products.filter(p => p.category === 'esc' || p.series === 'esc').length;
+  const fcsCount = products.filter(p => p.category === 'fc' || p.series === 'fc').length;
+  const ipsCount = products.filter(p => p.category === 'ips' || p.series === 'ips').length;
+  const otherCount = products.filter(p => p.series === 'other').length;
 
   return (
     <div className="products-page">
@@ -242,9 +248,13 @@ export default function ProductsPage() {
           all: products.length,
           haemng: haemngCount,
           maelard: maelardCount,
+          stroke: strokeCount,
+          vagans: vagansCount,
+          sciatic: sciaticCount,
           esc: escsCount,
           fc: fcsCount,
           ips: ipsCount,
+          other: otherCount,
         }}
       />
 

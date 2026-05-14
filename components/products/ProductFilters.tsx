@@ -9,13 +9,17 @@ interface ProductFiltersProps {
     all: number;
     haemng: number;
     maelard: number;
+    stroke: number;
+    vagans: number;
+    sciatic: number;
     esc: number;
     fc: number;
     ips: number;
+    other: number;
   };
 }
 
-type Category = 'all' | 'haemng' | 'maelard' | 'esc' | 'fc' | 'ips';
+type Category = 'all' | 'haemng' | 'maelard' | 'stroke' | 'vagans' | 'sciatic' | 'esc' | 'fc' | 'ips' | 'other';
 
 export function ProductFilters({
   activeCategory,
@@ -28,10 +32,14 @@ export function ProductFilters({
     { id: 'all', label: 'All', count: stats.all },
     { id: 'haemng', label: 'Haemng', count: stats.haemng },
     { id: 'maelard', label: 'Maelard', count: stats.maelard },
+    { id: 'stroke', label: 'Stroke', count: stats.stroke },
+    { id: 'vagans', label: 'Vagans', count: stats.vagans },
+    { id: 'sciatic', label: 'Sciatic', count: stats.sciatic },
     { id: 'esc', label: 'ESCs', count: stats.esc },
     { id: 'fc', label: 'Flight Controllers', count: stats.fc },
     { id: 'ips', label: 'IPS', count: stats.ips },
-  ];
+    { id: 'other', label: 'Other', count: stats.other },
+  ].filter(cat => cat.id === 'all' || cat.count > 0); // Only show tabs with products
 
   return (
     <div className="product-filters">
