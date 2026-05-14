@@ -488,15 +488,14 @@ export function ProductFormModal({ product, onClose }: ProductFormModalProps) {
               )}
             </fieldset>
 
-            {/* Section: Performance Data (for motors) */}
-            {(formData.series === 'haemng' || formData.series === 'maelard') && (
-              <fieldset className="form-section" disabled={isSaving}>
-                <div className="section-header-row">
-                  <legend className="section-label">Performance Data (Bench Test)</legend>
-                  <button type="button" className="btn-add-field" onClick={addPerfRow}>
-                    + Add Row
-                  </button>
-                </div>
+            {/* Section: Performance Data (optional for any product) */}
+            <fieldset className="form-section" disabled={isSaving}>
+              <div className="section-header-row">
+                <legend className="section-label">Performance Data (Bench Test)</legend>
+                <button type="button" className="btn-add-field" onClick={addPerfRow}>
+                  + Add Row
+                </button>
+              </div>
 
                 <div className="perf-table">
                   {(formData.perf || []).map((row, index) => (
@@ -586,7 +585,6 @@ export function ProductFormModal({ product, onClose }: ProductFormModalProps) {
                   <p className="help-text">Add performance bench test data (throttle curves, thrust, efficiency)</p>
                 )}
               </fieldset>
-            )}
 
             {/* Section: Images */}
             <fieldset className="form-section" disabled={isSaving}>
